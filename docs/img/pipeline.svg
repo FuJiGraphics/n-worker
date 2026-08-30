@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 320" font-family="'SF Mono','Menlo','Consolas',monospace">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#565f89"/>
+    </marker>
+    <marker id="arRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#f7768e"/>
+    </marker>
+    <marker id="arGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9ece6a"/>
+    </marker>
+  </defs>
+  <rect width="1040" height="320" rx="12" fill="#1a1b26"/>
+  <text x="520" y="40" text-anchor="middle" fill="#c0caf5" font-size="17" font-weight="bold">6단계 파이프라인</text>
+
+  <!-- 편집 잠금 브래킷 (P1~P2) -->
+  <path d="M 200 96 L 200 84 L 510 84 L 510 96" fill="none" stroke="#e0af68" stroke-width="1.5"/>
+  <text x="355" y="72" text-anchor="middle" fill="#e0af68" font-size="13">프로젝트 파일 편집 잠금 - 읽기만</text>
+
+  <!-- 단계 박스 -->
+  <g font-size="14">
+    <rect x="30" y="110" width="140" height="72" rx="8" fill="#24283b" stroke="#3b4261"/>
+    <text x="100" y="142" text-anchor="middle" fill="#7aa2f7" font-weight="bold">P0</text>
+    <text x="100" y="166" text-anchor="middle" fill="#c0caf5">컨텍스트</text>
+
+    <rect x="200" y="110" width="140" height="72" rx="8" fill="#24283b" stroke="#e0af68"/>
+    <text x="270" y="142" text-anchor="middle" fill="#7aa2f7" font-weight="bold">P1</text>
+    <text x="270" y="166" text-anchor="middle" fill="#c0caf5">인터뷰</text>
+
+    <rect x="370" y="110" width="140" height="72" rx="8" fill="#24283b" stroke="#e0af68"/>
+    <text x="440" y="142" text-anchor="middle" fill="#7aa2f7" font-weight="bold">P2</text>
+    <text x="440" y="166" text-anchor="middle" fill="#c0caf5">사전 리뷰</text>
+
+    <rect x="540" y="110" width="140" height="72" rx="8" fill="#24283b" stroke="#3b4261"/>
+    <text x="610" y="142" text-anchor="middle" fill="#7aa2f7" font-weight="bold">P3</text>
+    <text x="610" y="166" text-anchor="middle" fill="#c0caf5">생산</text>
+
+    <rect x="710" y="110" width="140" height="72" rx="8" fill="#24283b" stroke="#3b4261"/>
+    <text x="780" y="142" text-anchor="middle" fill="#7aa2f7" font-weight="bold">P4</text>
+    <text x="780" y="166" text-anchor="middle" fill="#c0caf5">검증</text>
+
+    <rect x="880" y="110" width="140" height="72" rx="8" fill="#24283b" stroke="#3b4261"/>
+    <text x="950" y="142" text-anchor="middle" fill="#7aa2f7" font-weight="bold">P5</text>
+    <text x="950" y="166" text-anchor="middle" fill="#c0caf5">기록/보고</text>
+  </g>
+
+  <!-- 진행 화살표 -->
+  <g stroke="#565f89" stroke-width="1.5">
+    <line x1="170" y1="146" x2="196" y2="146" marker-end="url(#ar)"/>
+    <line x1="340" y1="146" x2="366" y2="146" marker-end="url(#ar)"/>
+    <line x1="510" y1="146" x2="536" y2="146" marker-end="url(#ar)"/>
+    <line x1="680" y1="146" x2="706" y2="146" marker-end="url(#ar)"/>
+    <line x1="850" y1="146" x2="876" y2="146" marker-end="url(#ar)"/>
+  </g>
+
+  <!-- 치명 지적 되돌이 (P2 → P1) -->
+  <path d="M 440 182 C 440 216, 270 216, 270 186" fill="none" stroke="#f7768e" stroke-width="1.5" marker-end="url(#arRed)"/>
+  <text x="355" y="232" text-anchor="middle" fill="#f7768e" font-size="13">치명 지적 시 해당 지점만 재수렴</text>
+
+  <!-- 검증 반복 (P4 ↔ 수정) -->
+  <path d="M 810 182 C 810 216, 750 216, 750 186" fill="none" stroke="#9ece6a" stroke-width="1.5" marker-end="url(#arGreen)"/>
+  <text x="780" y="232" text-anchor="middle" fill="#9ece6a" font-size="13">의도대로 동작할 때까지</text>
+
+  <!-- 노트북 순환 (P5 → 다음 세션 P0) -->
+  <path d="M 950 182 C 950 290, 100 290, 100 186" fill="none" stroke="#7aa2f7" stroke-width="1.5" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+  <text x="520" y="278" text-anchor="middle" fill="#7aa2f7" font-size="13">배운 것은 노트북에 기록 - 다음 세션의 P0 가 이어받는다</text>
+</svg>

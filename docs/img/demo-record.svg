@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 460" font-family="'SF Mono','Menlo','Consolas',monospace" font-size="15">
+  <rect width="760" height="460" rx="12" fill="#1a1b26"/>
+  <rect width="760" height="38" rx="12" fill="#24283b"/>
+  <rect y="20" width="760" height="18" fill="#24283b"/>
+  <circle cx="24" cy="19" r="6" fill="#ff5f57"/>
+  <circle cx="44" cy="19" r="6" fill="#febc2e"/>
+  <circle cx="64" cy="19" r="6" fill="#28c840"/>
+  <text x="380" y="24" text-anchor="middle" fill="#565f89" font-size="13">P5 기록과 보고 - 다음 세션이 이어받는다</text>
+  <text x="28" y="76" fill="#7aa2f7">● P4 검증</text>
+  <text x="140" y="76" fill="#9ece6a">✓ 빌드</text>
+  <text x="240" y="76" fill="#9ece6a">✓ 테스트 12/12</text>
+  <text x="430" y="76" fill="#9ece6a">✓ 플레이 확인</text>
+  <text x="28" y="120" fill="#7aa2f7">● P5 기록</text>
+  <text x="150" y="120" fill="#565f89">curator 스폰 - 노트북 쓰기 단일 창구</text>
+  <text x="28" y="152" fill="#9ece6a">✓ projects/mygame/lessons/item-lock-entrypoint.md</text>
+  <text x="46" y="180" fill="#565f89">└ "잠금 검사도 SellService 진입점 안에서 - 우회 경로 실측"</text>
+  <text x="28" y="224" fill="#c0caf5">변경 요약</text>
+  <line x1="28" y1="238" x2="732" y2="238" stroke="#3b4261" stroke-width="1"/>
+  <text x="28" y="264" fill="#c0caf5">ItemData.cs</text>
+  <text x="240" y="264" fill="#565f89">잠금 필드 + 마이그레이션</text>
+  <text x="540" y="264" fill="#565f89">세이브 호환</text>
+  <text x="28" y="292" fill="#c0caf5">SellService.cs</text>
+  <text x="240" y="292" fill="#565f89">진입점에 잠금 검사</text>
+  <text x="540" y="292" fill="#565f89">판매 흐름</text>
+  <text x="28" y="320" fill="#c0caf5">InventoryView.cs</text>
+  <text x="240" y="320" fill="#565f89">비활성 표시</text>
+  <text x="540" y="320" fill="#565f89">UI</text>
+  <line x1="28" y1="336" x2="732" y2="336" stroke="#3b4261" stroke-width="1"/>
+  <text x="28" y="376" fill="#e0af68">? 결과 보고서를 남길까요?</text>
+  <text x="330" y="376" fill="#c0caf5">❯ pdf 저장</text>
+  <text x="460" y="376" fill="#9ece6a">(추천)</text>
+  <text x="28" y="420" fill="#9ece6a">✓ ~/Desktop/아이템_잠금_구조문서.pdf</text>
+</svg>
