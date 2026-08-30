@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  /* 완전 자립형 단일 파일 - 외부 요청 0건, JS 없음. 다이어그램은 inline SVG, 코드 색은 수동 span. */
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+         max-width: 980px; margin: 2rem auto; padding: 0 1.25rem; line-height: 1.7; }
+  h1 { font-size: 1.45rem; border-bottom: 2px solid #8884; padding-bottom: .4rem; }
+  h2 { font-size: 1.15rem; margin-top: 2.2rem; border-left: 4px solid #6a9fb5; padding-left: .55rem; }
+  h3 { font-size: 1rem; margin-top: 1.6rem; }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; margin: .6rem 0; }
+  th, td { border: 1px solid #8884; padding: .38rem .6rem; text-align: left; vertical-align: top; }
+  th { background: #8881; }
+  code { font-family: ui-monospace, Menlo, 'Apple SD Gothic Neo', monospace; font-size: .88em;
+         background: #8881; padding: .08em .35em; border-radius: 4px; }
+  /* 코드 블럭은 라이트/다크 무관 어두운 배경 고정 - 수동 하이라이팅 색이 항상 성립한다 */
+  pre { background: #1e1e2e; color: #d4d4d8; padding: .85rem 1rem; border-radius: 8px;
+        overflow-x: auto; font-family: ui-monospace, Menlo, 'Apple SD Gothic Neo', monospace;
+        font-size: .84rem; line-height: 1.55; }
+  pre code { background: none; padding: 0; font-size: 1em; }
+  /* 수동 하이라이팅 6클래스 */
+  pre .k { color: #c678dd; }  /* 키워드 - 보라 */
+  pre .t { color: #56b6c2; }  /* 타입 - 하늘 */
+  pre .m { color: #61afef; }  /* 메서드 - 파랑 */
+  pre .n { color: #d19a66; }  /* 숫자 - 주황 */
+  pre .c { color: #6a9955; }  /* 주석 - 회녹 */
+  pre .f { color: #e5c07b; }  /* 상수/필드 - 노랑 */
+  ul { padding-left: 1.3rem; }
+  svg { max-width: 100%; height: auto; }
+  figure { margin: .8rem 0; }
+  .meta { color: #888; font-size: .85rem; }
+  .caption { color: #888; font-size: .82rem; text-align: center; margin: .2rem 0 1.2rem; }
+  .ok { border-left: 4px solid #67c23a; padding-left: .8rem; margin: .5rem 0; }
+  .pending { border-left: 4px solid #e6a23c; padding-left: .8rem; margin: .5rem 0; }
+  .warn { background: #f5c84226; border-left: 4px solid #f5c842; padding: .5rem .8rem; margin: .5rem 0; border-radius: 0 6px 6px 0; }
+  .pick { background: #67c23a1a; border-left: 4px solid #67c23a; padding: .5rem .8rem; margin: .5rem 0; border-radius: 0 6px 6px 0; }
+  /* 타임라인/비율 막대용 - div 바가 SVG 보다 작성 실수가 적다 */
+  .bar { background: #8882; border-radius: 4px; overflow: hidden; height: 1.1rem; margin: .15rem 0; }
+  .bar-fill { background: #6a9fb5; height: 100%; }
+  /* pdf 인쇄(Chrome headless print-to-pdf) - 어두운 코드 배경과 콜아웃 색을 보존하고, 어색한 페이지 절단을 막는다 */
+  @page { margin: 1.2cm; }
+  @media print {
+    body { max-width: none; margin: 0; padding: 0; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    pre, table, figure, svg, .warn, .pick { break-inside: avoid; }
+    h1, h2, h3 { break-after: avoid; }
+  }
+</style>
+</head>
+<body>
+{{BODY}}
+</body>
+</html>
