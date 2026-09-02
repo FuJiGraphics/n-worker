@@ -39,6 +39,11 @@ nw_need_python() { [ -n "$NW_PY" ] || nw_find_python || { echo "오류: python 3
 nw_tool_path() {
   if [ "$NW_CYGPATH" = 1 ]; then cygpath -m "$1" 2>/dev/null || printf '%s' "$1"; else printf '%s' "$1"; fi
 }
+# nw_bash_path: 반대 방향. 셸이 직접 실행하거나 여는 경로는 bash 표기(Windows 는 /c/...)여야 한다.
+#   nw_tool_path 가 만든 C:/... 는 모델의 도구와 네이티브 프로세스용이고, Git Bash 의 bash 에는 -u 표기를 준다.
+nw_bash_path() {
+  if [ "$NW_CYGPATH" = 1 ]; then cygpath -u "$1" 2>/dev/null || printf '%s' "$1"; else printf '%s' "$1"; fi
+}
 # nw_key: 비교용 정규화. 표기 차이(/c/..., C:/..., C:\...)와 끝 슬래시를 지우고, 대소문자를 무시하는 파일시스템(Windows, macOS 기본)에서는 소문자로.
 nw_key() {
   local p="$1"
@@ -82,7 +87,8 @@ nw_pid_is() {
 # 명령과 로그 경로는 nw_tool_path 표기로 넘긴다(Windows 의 python 은 네이티브 프로세스라 /c/... 를 모른다). 성공 시 pid 를 출력한다.
 nw_detach() {
   local log="$1"; shift
-  nw_py - "$(nw_tool_path "$log")" "$(nw_tool_path "$SKILL_DIR")" "$@" <<'PY'
+  local pid
+  pid="$(nw_py - "$(nw_tool_path "$log")" "$(nw_tool_path "$SKILL_DIR")" "$@" 2>/dev/null <<'PY'
 import os, shutil, subprocess, sys
 log, cwd, cmd = sys.argv[1], sys.argv[2], list(sys.argv[3:])
 cmd[0] = shutil.which(cmd[0]) or cmd[0]
@@ -94,4 +100,23 @@ else:
     kw["start_new_session"] = True
 print(subprocess.Popen(cmd, **kw).pid)
 PY
+)"
+  case "$pid" in ''|*[!0-9]*) ;; *) printf '%s' "$pid"; return 0 ;; esac
+  # 폴백: python 분리가 안 되는 환경. setsid 가 있으면 새 세션, 없으면 nohup 으로 띄운다.
+  # nohup 은 도구 셸의 프로세스 그룹에 남아 하네스가 그룹을 죽이면 함께 죽는다 - 그래도 큐는 남고 다음 투입이 다시 띄운다.
+  # 여기서는 셸이 직접 실행하므로 경로를 bash 표기로 되돌린다.
+  # command substitution 안에서 case 를 쓰지 않는다 - ')' 가 '$(' 의 닫는 괄호로 오인돼 런타임 구문 오류가 난다
+  # (notebook/common/lessons/deferred-parse-defeats-syntax-check.md).
+  local a; local -a conv; conv=()
+  for a in "$@"; do
+    case "$a" in
+      [A-Za-z]:/*) conv[${#conv[@]}]="$(nw_bash_path "$a")" ;;
+      *) conv[${#conv[@]}]="$a" ;;
+    esac
+  done
+  set -- "${conv[@]}"
+  ( cd "$SKILL_DIR" 2>/dev/null || cd /
+    if command -v setsid >/dev/null 2>&1; then setsid "$@" </dev/null >>"$(nw_bash_path "$log")" 2>&1 &
+    else nohup "$@" </dev/null >>"$(nw_bash_path "$log")" 2>&1 & fi
+    printf '%s' "$!" )
 }
