@@ -78,6 +78,14 @@ echo "=== WORK: $WORK"
 echo "=== 프로젝트 루트: $ROOT"
 echo "=== 슬러그: ${SLUG:-미등록} / 스택: ${STACK:-?}"
 echo ""
+# curator 는 말없이 도는 기억 장치다 - 결과를 여기서 보여 주지 않는다(사용자 결정 2026-09-03).
+# 예외는 고장뿐: done 파일에 status=failed 가 있으면 한 줄만 알린다(기록이 유실됐다는 신호).
+SKILL="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -d "$SKILL/notebook/.curator/done" ]; then
+  failed="$(grep -l '"status": "failed"' "$SKILL/notebook/.curator/done"/*.json 2>/dev/null | grep -v request.json | wc -l | tr -d ' ')"
+  [ "$failed" != "0" ] && echo "=== curator 실패 ${failed}건 - scripts/curator-ctl.sh results 로 확인 ===" && echo ""
+fi
+
 echo "===== notebook/registry.md ====="
 cat "$NB/registry.md"
 echo ""

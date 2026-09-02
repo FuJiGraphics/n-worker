@@ -10,3 +10,6 @@ notebook/common/lessons/*
 !notebook/common/lessons/.gitkeep
 notebook/common/scripts/*
 !notebook/common/scripts/INDEX.md
+
+# curator 큐 데몬의 런타임 상태(큐, 잠금, 로그) - 기기 로컬
+notebook/.curator/
