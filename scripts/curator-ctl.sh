@@ -3,6 +3,7 @@
 # 사용법: curator-ctl.sh status | stop | kill | results [--ack] | log [id]
 set -u
 SKILL="$(cd "$(dirname "$0")/.." && pwd)"; C="$SKILL/notebook/.curator"
+PY="$(command -v python3 || command -v python)"   # Windows(Git Bash)에는 python3 이름이 없을 수 있다
 cmd="${1:-status}"
 alive() { [ -f "$C/lock/pid" ] && kill -0 "$(cat "$C/lock/pid" 2>/dev/null)" 2>/dev/null; }
 case "$cmd" in
@@ -13,7 +14,7 @@ case "$cmd" in
   stop) touch "$C/stop"; echo "중지 요청 - 현재 항목이 끝나면 종료된다";;
   kill) alive && kill "$(cat "$C/lock/pid")" && rm -rf "$C/lock" && echo "강제 종료" || echo "실행 중인 데몬 없음";;
   results)
-    python3 - "$C/done" "${2:-}" <<'PY'
+    "$PY" - "$C/done" "${2:-}" <<'PY'
 import json,sys,glob,os
 d,ack=sys.argv[1],sys.argv[2]=="--ack"
 for p in sorted(glob.glob(os.path.join(d,"*.json"))):

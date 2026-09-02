@@ -8,7 +8,7 @@ checked: 2026-09-02
 갱신 트리거 (하나라도 걸리면 curator model-refresh 를 스폰한다):
   ① 세션 모델 이름이 아래 §2 표에 없다 - 새 세대가 나왔다는 가장 정확한 신호다
   ② checked 가 60일 이상 지났다
-  ③ 별칭(`'fable'`/`'opus'`/`'sonnet'`/`'haiku'`)이 스폰에서 거부되거나 다른 세대를 가리킨다
+  ③ 별칭(`'fable'`/`'opus'`/`'sonnet'`)이 스폰에서 거부되거나 다른 세대를 가리킨다
   ④ 사용자가 갱신을 요청했다
 ```
 
@@ -26,11 +26,10 @@ checked: 2026-09-02
 |---|---|---|---|---|
 | `'fable'` | Fable 5.1 (스폰 별칭 해석은 미확인 - 아래 참조) | `claude-fable-5-1` | 최상위(메인 전용) | **서브로 쓰지 않는다** - Opus 위 티어라 어느 서브에 붙여도 §1 의 "세션 모델과 동급 이상" 승인 규칙 대상이다 |
 | `'opus'` | Opus 5 | `claude-opus-5` | 한 티어 아래 최신 플래그십 | 위임 생산, curator, reporter, 구조 조사, 추론형 렌즈(① 구조 준수, ② 과설계, ④ 정적 추적) |
-| `'sonnet'` | Sonnet 5 | `claude-sonnet-5` | 중간 | 조사형 렌즈(③ 중복, ⑤ 정합성), P1 존재/위치 probe, 로그 판독 |
-| `'haiku'` | Haiku 4.5 | `claude-haiku-4-5` | 최하위 경량 | 판단 없는 기계 작업 - 벌크 스타일 교정, git 커밋, 대량 존재 확인, 로그 1차 필터 |
+| `'sonnet'` | Sonnet 5 | `claude-sonnet-5` | 중간, 최하위 경량 겸임 | 조사형 렌즈(③ 중복, ⑤ 정합성), P1 존재/위치 probe, 로그 판독, 판단 없는 기계 작업(벌크 스타일 교정, 대량 존재 확인, 로그 1차 필터) |
 
 - 별칭은 **세대 자동 추적**이다 - 새 세대가 출시되면 별칭이 자동으로 최신을 가리키므로, 스폰 코드에는 별칭만 쓰고 id 는 쓰지 않는다. 이 표의 id 칸은 "지금 무엇을 가리키는가"를 사람이 확인하는 용도다.
-- 별칭 넷(`'fable'`/`'opus'`/`'sonnet'`/`'haiku'`)은 2026-09-02 확인 시점에 모두 유효하다. 서브 스폰의 `model` 파라미터가 받는 값이 이 넷이다. 폐지나 의미 변경은 없다(트리거 ③ 미발동).
+- 별칭 셋(`'fable'`/`'opus'`/`'sonnet'`)은 2026-09-02 확인 시점에 모두 유효하다. 서브 스폰의 `model` 파라미터가 받는 값이다. 폐지나 의미 변경은 없다(트리거 ③ 미발동).
 - **미확인 - 스폰 별칭 `'fable'` 이 Fable 5.1 과 Fable 5 중 무엇을 가리키는가.** 벤더 레퍼런스의 이름 해석 표는 "fable" 을 `claude-fable-5-1` 로 해석하지만 그것은 API 모델 문자열 해석이고, 하네스의 서브 스폰 별칭 해석과 같은 층이라는 근거는 없다. **어느 쪽이든 자리는 같으므로 배치 판단은 바뀌지 않는다** - 둘 다 최상위 티어이고 per-token 가격도 같다.
 - `'opus'` → Opus 5 는 라이브로 확인됐다. 이 갱신을 수행한 curator 서브(§3 고정 배치대로 `'opus'` 스폰)의 세션 모델이 Opus 5 (`claude-opus-5[1m]`)로 보고됐다.
 - **Fable 5.1 은 Fable 5 의 후속이고 같은 티어, 같은 per-token 가격이다.** 티어 자리 이동은 없다 - Opus 5 는 그대로 "한 티어 아래 최신 플래그십" 자리다.
@@ -46,7 +45,7 @@ checked: 2026-09-02
 - **P3 위임 생산만 예외로 `effort` 를 생략해 세션 effort 를 상속한다.** 코드를 쓰는 일의 강도는 사용자가 `/effort` 로 정한 수준과 같아야 하고, 위임 여부가 코드 품질을 바꾸면 안 된다. 세션이 `max` 면 `xhigh` 로 명시해 내린다.
 - **생산 외에는 생략 금지.** 생략은 곧 세션 effort 상속이다 - "메인이 정한다"는 "안 적어도 된다"가 아니다.
 - 메인 세션의 effort 는 사용자 영역이므로 스킬이 건드리지 않는다.
-- **고정 배치 (스폰 지시가 이 절을 가리킨다):** curator = `'opus'`, effort 는 register/model-refresh 가 medium, record 가 high(큐 데몬 `scripts/curator-daemon.sh` 가 `claude -p --model opus --effort <이 값>` 으로 띄운다). **curator 서브**(curator 가 쓰기를 나눠 주는 하위 서브, 최대 3개) = 중간 티어 `'sonnet'`, effort medium - 판정은 curator 가 끝내고 서브는 파일 쓰기만 하므로 조사형이다. curator.md 는 이 행을 그때 읽어 쓴다(하드코딩 없음). 세대가 바뀌면 §2 표와 이 행만 고친다. reporter 와 P3 위임 생산 = `'opus'`, effort 생략(세션 상속, 세션 `max` 면 `xhigh` 명시). 벌크 스타일 교정 = `'haiku'`, effort low.
+- **고정 배치 (스폰 지시가 이 절을 가리킨다):** curator = `'opus'`, effort 는 register/model-refresh/harness-refresh 가 medium, record/targeted/sweep 이 high(큐 데몬 `scripts/curator-daemon.sh` 가 `claude -p --model opus --effort <이 값>` 으로 띄운다). **curator 는 하위 서브를 쓰지 않는다** - 헤드리스 `claude -p` 안에서 서브가 권한과 도구 제한을 물려받는지 미문서이고 실측(2026-09-03)에서 서브의 쓰기가 전부 거부됐다. 사용자 결정(2026-09-03): 서브는 없는 셈 친다(harness-routing.md #12). reporter 와 P3 위임 생산 = `'opus'`, effort 생략(세션 상속, 세션 `max` 면 `xhigh` 명시). 벌크 스타일 교정 = `'sonnet'`, effort low.
 
 ## 4. 1차 출처 순서 (갱신할 때 이 순서로 읽는다)
 
@@ -56,11 +55,9 @@ checked: 2026-09-02
 
 **확인하지 못한 것은 적지 않는다.** 빈칸으로 두고 "미확인"이라고 쓰는 것이 추측을 적는 것보다 낫다 - 이 파일의 오류는 이후 모든 세션의 배치를 오염시킨다.
 
-## [충돌] 벤더 문서 대 §3 고정 배치 (판단은 사용자 몫 - 이 파일이 임의로 §3 을 고치지 않았다)
+## [충돌] 기록
 
-- **§3 은 "벌크 스타일 교정 = `'haiku'`, effort low" 로 고정 배치한다. 그런데 벤더 레퍼런스는 Haiku 4.5 가 effort 파라미터를 받지 않는다고 적는다**(API `output_config.effort` 는 Sonnet 4.5 와 Haiku 4.5 에서 오류. effort 다섯 단계는 Fable 5.1, Fable 5, Opus 5, Opus 4.8/4.7, Sonnet 5 에서 유효하고, Opus 4.6 과 Sonnet 4.6 은 `xhigh` 가 없는 네 단계다).
-- 다만 이 충돌이 실제로 발생하는지는 확인하지 못했다 - 서브 스폰의 effort 가 API 의 `output_config.effort` 로 그대로 내려가는지, 하네스 층에서 흡수되는지가 미확인이다. Haiku 서브 스폰이 실패한 적은 관측되지 않았다.
-- 2026-09-02 재확인 - 레퍼런스 서술은 그대로다: "`max` is supported on Fable 5, Opus 4.6 and later, Sonnet 5, and Sonnet 4.6 - it errors on Sonnet 4.5 and Haiku 4.5"(`shared/model-migration.md`). 충돌은 해소되지 않았다.
-- 결정할 것: `'haiku'` 배치에서 effort 지정을 빼거나, effort 가 필요한 기계 작업을 `'sonnet'` 으로 올린다.
+- **해소 2026-09-03** - 구 §3 "벌크 스타일 교정 = `'haiku'`, effort low" 와 벤더 레퍼런스(Haiku 4.5 는 effort 파라미터를 받지 않는다 - `shared/model-migration.md`)의 충돌은 벌크 작업 배치를 `'sonnet'`, effort low 로 옮겨 소멸했다.
+- 현재 열린 충돌: 없음.
 
-verified: 2026-09-02 (이 환경의 `claude-api` 스킬 레퍼런스 + 환경 시스템 컨텍스트 2026-09-02 + 이 스킬의 실측 규율)
+verified: 2026-09-03 (이 환경의 `claude-api` 스킬 레퍼런스 + 환경 시스템 컨텍스트 2026-09-02 + 이 스킬의 실측 규율 + 사용자 지시 2026-09-03)

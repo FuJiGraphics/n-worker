@@ -95,6 +95,7 @@ Claude Code 세션에서 프로젝트 폴더를 열고:
 - **복제 후 적응이 생성보다 우선.** 처음부터 새로 짜지 않고 그 프로젝트에서 가장 가까운 기존 구현을 본뜬다. 컨벤션은 저절로 따라온다.
 - **읽은 것만 사실로 친다.** 노트북도 과거에 검증된 기록일 뿐이라, 동작을 바꾸기 전에는 실제 코드로 다시 확인한다.
 - **서브에이전트 결과는 파일로 받는다.** Workflow 는 건수만 돌려주고 전문은 `scripts/wf-summarize.py` 로 압축해 읽는다. 전문을 그대로 받으면 메인 컨텍스트에 통째로 쌓이고 긴 결과는 잘린다.
+- **하네스에 기댄 동작은 목록으로 관리한다.** 문서에 없는 Claude Code 동작에 기댄 곳은 `notebook/common/harness-routing.md` 에 항목별로 적는다(가정, 사용 위치, 근거, 깨졌을 때). `nb-load` 가 하네스 버전이 바뀐 것을 감지하면 한 줄 알리고 curator 가 재검증한다. 스킬이 하네스 업데이트에 조용히 깨지지 않게 하는 장치다.
 
 ## 3레이어 노트북 - 장기 기억의 구조
 
@@ -121,7 +122,8 @@ Claude Code 세션에서 프로젝트 폴더를 열고:
 - **세션과 독립된 프로세스**다. 세션이 닫혀도 남은 큐를 마저 처리하고, 큐가 비면 스스로 종료한다.
 - **동시에 여러 세션이 넣어도 하나만 돈다.** 잠금 파일로 단일 실행을 보장하고, 뒤에 들어온 요청은 큐에 쌓인다. 노트북에 쓰는 주체가 기계적으로 하나뿐이라 충돌이 없다.
 - **말하지 않는다.** 진행 보고나 요약을 출력하지 않고 도구 호출만 한다. 결과는 세션에 전달되지 않으며, 실패했을 때만 다음 세션 시작 때 한 줄 뜬다.
-- 권한은 `acceptEdits` 와 도구 화이트리스트로 노트북 폴더 안에 묶인다. 모델은 `opus`, 하위 서브에이전트는 최대 3개(모델은 `notebook/common/model-routing.md` 에서 읽으므로 세대가 바뀌어도 그 파일만 고친다).
+- **권한 모드는 `scripts/curator-perm.mode` 한 단어가 정하고, 배포 기본값은 `bypassPermissions` 다.** 노트북이 `~/.claude/` 아래에 있고 Claude Code 는 `.claude/` 를 protected path 로 취급해, 헤드리스 `claude -p` 에서는 `acceptEdits` 로도, allow 규칙으로도, 훅으로도 쓰기가 거부된다. 문서화된 유일한 우회가 bypass 모드다. 대신 범위를 좁힌다: `--tools` 로 도구를 Read, Edit, Write, Grep, Glob, Bash 로 한정하고, `--disallowedTools` 로 git 쓰기 명령, `rm`, `sudo` 를 막고(deny 규칙은 bypass 모드에서도 유효), MCP 서버를 붙이지 않는다. 파일을 `acceptEdits` 로 바꾸면 노트북 쓰기가 거부되고 결과가 `denied` 로 남는다.
+- 모델은 `opus`(`notebook/common/model-routing.md` 에서 읽으므로 세대가 바뀌어도 그 파일만 고친다). 하위 서브에이전트는 쓰지 않는다 - 헤드리스에서 서브의 권한 상속이 문서화되지 않았고 실측에서 거부됐다.
 
 ```bash
 scripts/curator-ctl.sh status    # 데몬 상태, 큐 길이, 현재 항목
@@ -154,7 +156,8 @@ scripts/curator-ctl.sh stop      # 현재 항목이 끝나면 종료
 ```
 
 - `scripts/nb-gate.mode` 가 `shadow` 면 기록만 하고 막지 않는다(기본값). `block` 으로 바꾸면 대조 기록 없는 프로젝트 파일 수정이 거부된다.
-- 훅 없이도 스킬은 동작한다 - 게이트는 규율의 보험이다.
+- 게이트는 n-worker 세션만 검사한다. `nb-load` 가 세션 id(`CLAUDE_CODE_SESSION_ID`)를 마커에 적고, 훅은 그 id 와 정확히 맞는 세션의 편집만 판정한다. 다른 세션의 편집은 기록도 남기지 않는다.
+- 훅 없이도 스킬은 동작한다 - 게이트는 규율의 보험이다. `jq` 가 없으면 조용히 통과한다.
 
 ## 폴더 구조
 
@@ -177,10 +180,12 @@ n-worker/
 │   ├── nb-gate.sh         # PreToolUse 게이트 (선택)
 │   ├── curator-enqueue.sh # 기록 요청을 큐에 넣고 데몬이 없으면 띄운다
 │   ├── curator-daemon.sh  # 큐를 순서대로 처리하는 독립 프로세스
+│   ├── curator-perm.mode  # curator 데몬의 권한 모드 (한 단어)
 │   ├── curator-ctl.sh     # 데몬 상태 확인, 결과 열람, 중지
 │   ├── wf-summarize.py    # Workflow 결과(journal) 압축 판독
 │   └── open-artifact.sh   # 산출물 열기 (md 를 에디터로)
 ├── notebook/              # 장기 기억 (시드 골격 - 설치 후 여기서 자란다)
+│   ├── common/harness-routing.md  # 이 스킬이 기댄 하네스 동작 목록 (버전 변경 시 재검증)
 │   └── .curator/          #   큐, 잠금, 로그 (런타임 상태, 추적 안 함)
 └── assets/                # html 보고서 템플릿
 ```
@@ -190,8 +195,9 @@ n-worker/
 | 항목 | 내용 |
 |---|---|
 | [Claude Code](https://claude.com/claude-code) | 스킬, 서브에이전트, `AskUserQuestion` 지원 버전 |
-| 셸 | bash (macOS / Linux 검증) |
+| 셸 | bash (macOS / Linux 검증, Windows 는 Git Bash). 스크립트는 `python3` 이 없으면 `python` 을 쓴다 |
 | `claude` CLI | curator 데몬이 `claude -p` 로 실행되므로 PATH 에 있어야 한다 |
+| `jq` | 노트북 게이트(선택 설정)만 쓴다. 없으면 게이트는 조용히 통과한다 |
 | 언어 | 스킬 본문과 진행 대화가 한국어다. 영어 환경에서도 동작하지만 질문과 플랜이 한국어로 나온다 |
 
 ## License
