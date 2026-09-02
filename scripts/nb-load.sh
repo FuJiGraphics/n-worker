@@ -1,6 +1,6 @@
 #!/bin/bash
 # n-worker P0 노트북 로더.
-# 한 번의 호출로: registry + 해당 프로젝트의 3층 인덱스 출력, $WORK 생성, 게이트 마커 기록.
+# 한 번의 호출로: registry + 해당 프로젝트의 3레이어 인덱스 출력, $WORK 생성, 게이트 마커 기록.
 # 사용법: nb-load.sh <프로젝트 루트 절대경로> [기존 WORK 경로(재실행 시)]
 set -u
 
@@ -90,20 +90,20 @@ echo "===== notebook/registry.md ====="
 cat "$NB/registry.md"
 echo ""
 
-# 층 인덱스 출력 - 층 루트의 INDEX.md(라우터)만.
-# 서브 인덱스(lessons-index-* 등)는 여기서 덤프하지 않는다: 발동당 수만 토큰이 세션 내내
-# 재전송되는 고정비가 되기 때문이다. 걸리는 도메인만 모델이 Read 로 펼치고(SKILL.md 로딩 절차 3),
+# 레이어 인덱스 출력 - 레이어 루트의 INDEX.md(라우터)만.
+# 서브 인덱스(lessons-index-* 등)는 여기서 덤프하지 않는다: 실행당 수만 토큰이 세션 내내
+# 재전송되는 고정비가 되기 때문이다. 관련 도메인만 모델이 Read 로 열고(SKILL.md 로딩 절차 3),
 # 대조 안전망은 nb-grep 이 서브 인덱스 전부를 걸어 유지한다.
 print_layer() {
   dir="$1"; title="$2"
-  if [ ! -d "$dir" ]; then echo "===== $title: 층 폴더 없음 ====="; echo ""; return; fi
+  if [ ! -d "$dir" ]; then echo "===== $title: 레이어 폴더 없음 ====="; echo ""; return; fi
   echo "===== $title ====="
   if [ -f "$dir/INDEX.md" ]; then
     echo "--- $dir/INDEX.md"
     cat "$dir/INDEX.md"
     echo ""
   else
-    echo "(INDEX.md 없음 - 층 골격 정비 필요, curator 에 보고)"
+    echo "(INDEX.md 없음 - 레이어 골격 정비 필요, curator 에 보고)"
     echo ""
   fi
 }

@@ -1,6 +1,6 @@
 #!/bin/bash
 # n-worker 노트북 대조. 이 스크립트 실행만 대조로 인정된다.
-# 3층 인덱스를 이름별로 grep, 히트한 lesson 본문을 출력에 동봉, $WORK/nb-checks.log 에 기록.
+# 3레이어 인덱스를 이름별로 grep, 히트한 lesson 본문을 출력에 함께 담고, $WORK/nb-checks.log 에 기록.
 # 사용법: nb-grep.sh <WORK 경로> <이름1> [이름2] ...
 set -u
 
@@ -26,7 +26,7 @@ HASH="$(basename "$MARKER" .marker)"
 LOG="$ACTIVE/$HASH.checks.log"
 touch "$LOG"
 
-# 대조 대상 층
+# 대조 대상 레이어
 LAYERS=""
 [ -n "$SLUG" ] && [ "$SLUG" != "?" ] && LAYERS="$NB/projects/$SLUG"
 [ -n "$STACK" ] && [ "$STACK" != "?" ] && [ "$STACK" != "-" ] && LAYERS="$LAYERS $NB/stacks/$STACK"
@@ -36,7 +36,7 @@ LAYERS="$LAYERS $NB/common"
 print_body() {
   bf="$1"
   [ -f "$bf" ] || { echo "   (본문 파일 없음: $bf)"; return; }
-  # 같은 세션에서 같은 본문은 한 번만 동봉한다 - 두 번째부터는 경로만(실측 8KB 중복). 대조 기록(checks.log)은 그대로 남는다
+  # 같은 세션에서 같은 본문은 한 번만 함께 출력한다 - 두 번째부터는 경로만(실측 8KB 중복). 대조 기록(checks.log)은 그대로 남는다
   BODIES="$ACTIVE/$HASH.bodies"; touch "$BODIES"
   if grep -qxF "$bf" "$BODIES"; then echo "   --- 본문: $bf (이미 이 세션에 출력됨 - 필요하면 Read)"; return; fi
   echo "$bf" >> "$BODIES"
@@ -68,7 +68,7 @@ for NAME in "$@"; do
         HITS=$((HITS+1))
         echo "히트: $real:${hitline%%:*}"
         echo "   ${hitline#*:}"
-        # 걸린 줄의 첫 md 링크 → 본문
+        # 매치된 줄의 첫 md 링크 → 본문
         rel="$(printf '%s' "$hitline" | sed -nE 's/.*\(([^()]+\.md)\).*/\1/p' | head -1)"
         if [ -n "$rel" ]; then
           bpath="$(dirname "$real")/$rel"
