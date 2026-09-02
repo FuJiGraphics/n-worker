@@ -90,6 +90,7 @@ phase('Review')
 // 서브가 undefined 를 입력으로 믿고 끝까지 실행해 버린다. 그렇다고 플랜 전문을 리터럴로 박지도 않는다 - 그 분량(실측 10~28KB)이
 // 메인 출력으로 한 번 더 쌓인다. 프롬프트 문자열에는 **플랜 파일 절대경로 + 3줄 요약**만 싣고 서브가 Read 로 전문을 읽게 한다
 // (경로는 args 가 아니라 프롬프트라 유실되지 않는다). 조건: 스폰 직전에 플랜 파일이 최종본이어야 한다. 아래 '입력 미전달' 가드는 그대로.
+// 경로는 nb-load 가 준 슬래시 표기 그대로 - 역슬래시(C:\\...)는 JS 문자열 이스케이프로 깨진다.
 const planPath = '<$WORK>/plan.md'
 const planGist = `<< 3줄: 무엇을 바꾸나 / 어디까지 / 회귀 경계 >>`
 const plan = `플랜 전문: ${planPath} (변경 설계 표, 코드 초안, 검증 계획의 위험 케이스는 이 파일에 있다 - 먼저 Read 하라)\n요약: ${planGist}`
@@ -121,7 +122,7 @@ const out = await parallel(lenses.map(L => () =>
 const dead = lenses.filter((L, i) => !out[i]).map(L => L.label)
 // 함정 4: return 값은 완료 알림으로 메인 컨텍스트에 통째로 들어간다(24KB 에서 잘려 꼬리 유실 - 실측 51KB 결과에서 27KB 만 도착).
 // 그래서 전문을 return 하지 않는다. 건수와 판정만 돌려주고, 전문은 하네스가 남기는 journal.jsonl 을
-// `python3 <스킬>/scripts/wf-summarize.py <journal>` 로 압축해 읽는다(critical 은 전문, 나머지 축약. journal 경로는 완료 알림의 diagnostics 에 온다).
+// `bash <스킬>/scripts/wf-summarize.sh <journal>` 로 압축해 읽는다(critical 은 전문, 나머지 축약. journal 경로는 완료 알림의 diagnostics 에 온다).
 return { dead, lenses: out.map((r, i) => ({ lens: lenses[i].label, findings: r ? r.findings.length : null, clean: r ? r.cleanWithinLens : null })) }
 // dead 가 비어 있지 않으면 메인이 그 렌즈만 1회 재시도한다. 취합, 분기, 사용자 질문은 전부 메인의 일이다.
 ```

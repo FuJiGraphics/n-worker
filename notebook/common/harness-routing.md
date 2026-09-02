@@ -31,23 +31,35 @@ checked_version: claude-code_2-1-258_agent
 | 7 | Workflow 스크립트: `parallel()` 은 throw 항목을 null 로, `meta` 는 순수 리터럴만, `Date.now()` 류는 throw | references/review.md §4 | 관측 2026-07~08 + 도구 설명 | 같은 스크립트 2회 실패 시 raw Agent 폴백(review.md §4) |
 | 8 | `Agent` 도구 스키마에 `effort` 파라미터가 없다(`model` 은 있다). effort 차등은 Workflow `agent()` 에서만 가능 | SKILL.md 서브에이전트 운용 절 | 관측 2026-09-03(세션 도구 정의) | Agent 스폰은 세션 effort 상속으로 동작. 규칙은 Workflow 한정 |
 | 9 | `AskUserQuestion` 문항 상한 4 | references/interview.md | 문서(도구 스키마) | - |
-| 10 | 서브 `model` 별칭 `'opus'`, `'sonnet'` 유효 | model-routing.md | 관측 2026-09-02 | model-routing 트리거 ③ |
+| 10 | 서브 `model` 별칭 `'opus'`, `'sonnet'` 유효(`'fable'` 은 model-routing.md 에 있으나 스폰 별칭 해석 미확인 - 서브로 쓰지 않는다) | model-routing.md | 관측 2026-09-02 | model-routing 트리거 ③ |
 | 11 | `claude -p` 플래그 `--tools "A,B"`, `--disallowedTools`, `--strict-mcp-config`, `--add-dir`, `--max-turns`, `--effort`, `--name` | scripts/curator-daemon.sh | 문서 cli-reference + `claude -p --help` 2026-09-03 | 데몬 로그에 플래그 오류 → done `failed` |
 | 12 | 헤드리스 `claude -p` 안에서 `Agent` 로 띄운 하위 서브가 상위의 권한, 도구 제한을 물려받는지 | 사용 안 함 - curator 는 하위 서브를 쓰지 않는다(사용자 결정 2026-09-03) | 미문서. 관측 2026-09-03: acceptEdits 상위에서 서브의 Write/Edit/Bash 전부 거부 | 해당 없음 |
+| 13 | `claude -p --output-format json` 의 결과 JSON 에 `result`, `is_error`, `subtype`, `num_turns`, `permission_denials[]`(tool_name, tool_input) | scripts/curator-daemon.sh(사람용 로그 추출, denied 판정) | 문서 headless + 관측 2026-09-03 | JSON 으로 안 읽히면 원문을 로그로 남기고 거부 문구 grep 으로 폴백 |
+| 14 | PreToolUse 훅 stdin 의 `tool_input.file_path` 표기 - macOS/Linux 는 절대 POSIX 경로. Windows 는 `C:\...` 또는 `C:/...` 로 추정 | scripts/nb-gate.sh(`nw_key` 로 표기, 대소문자, 끝 슬래시를 지우고 비교) | 관측 2026-08(macOS). Windows 미확인 | 어느 표기든 정규화되므로 무해. 전혀 다른 형태면 절대경로 판정에서 기록 없이 통과(fail-open) |
+| 15 | Bash 도구는 Windows 에서 Git Bash(MSYS2)로 실행되고, bash 의 `/c/...`, `/tmp/...` 표기를 Node 기반 파일 도구(Read/Write/Edit)는 드라이브 상대 경로로 오독한다 | scripts/_lib.sh `nw_tool_path`(cygpath -m → `C:/...`), nb-load 출력, 데몬 프롬프트 | 문서(Windows 요구사항 Git for Windows) + MSYS 경로 변환 규칙. 실기 미확인 | 모델이 경로 오류를 내면 nb-load 출력의 표기를 그대로 복사했는지 먼저 본다 |
 
 ## 3. [깨짐] 기록
 
-- 없음 (2026-09-03)
+- 2026-09-03 - §5 실측 기록의 "`Bash` 는 통과" 가 틀렸다. acceptEdits 헤드리스에서 Bash 셸 리다이렉트(`> 파일`)도 `which is a sensitive file` 로 거부(관측: `.curator/logs/20260902T172923Z-eval-session-58298.log:4`). protected path 검사는 파일 편집 도구 한정이 아니다. §5 를 정정했다. 표 #1 의 가정(bypassPermissions 만이 우회 수단)은 그대로 성립 - 이번 bypassPermissions 실행이 실증.
 
-## 4. 미검증 (Windows)
+## 4. 미검증 (Windows) - 2026-09-03 07시 개정
 
-- **cygpath 경로 변환**(`scripts/curator-daemon.sh` 의 `native()`)은 2026-09-03 에 검증 없이 넣었다. 하네스가 Git Bash 에서 `C:\...` 표기를 원한다는 전제이고, POSIX 표기(`/c/Users/...`)를 원한다면 이 변환이 오히려 경로를 깨뜨린다. **윈도우에서 데몬이 경로 오류를 내면 그 함수 호출을 지우고 원래 변수를 그대로 쓰면 된다**(그 상태가 2026-09-03 패치 이전과 같다). macOS/Linux 에는 `cygpath` 가 없어 무영향.
-- 같은 이유로 미검증: Git Bash 에서 `nohup`, `disown` 이 데몬을 터미널에서 떼어내는지(죽어도 큐는 남고 다음 enqueue 가 다시 띄운다), `~/.claude` protected path 규칙이 윈도우에서도 같은지.
+Windows 대응은 전부 Git for Windows(MSYS2) 의미론으로 작성했고, macOS 에서 `uname`/`cygpath` 스텁으로 논리만 실측했다. 실기 검증 0회. 어느 항목이든 실기에서 깨지면 `.pending.md` 에 올린다.
+
+- **경로 표기** - 모델과 도구에 보이는 경로는 `scripts/_lib.sh` 의 `nw_tool_path`(`cygpath -m` → `C:/Users/...` 혼합 표기)로 통일했다. 역슬래시 표기(`cygpath -w`)는 bash 인용과 JS/JSON 문자열에서 깨지므로 쓰지 않는다. 비교는 `nw_key`(표기, 대소문자, 끝 슬래시 정규화)로 한다. registry 행은 `C:/...`, `C:\...`, `/c/...` 어느 표기든 매칭된다.
+- **데몬 분리** - `nw_detach` 가 python `subprocess.Popen` 으로 띄운다(POSIX 는 `start_new_session`, Windows 는 `DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP`, stdin 은 /dev/null, cwd 는 스킬 폴더). Windows 에서 이 자식이 Bash 도구 종료 뒤에도 살아남는지, `kill -0`/`ps -p` 가 다른 Git Bash 프로세스의 MSYS pid 를 보는지 미확인. 죽어도 큐는 남고 다음 enqueue 가 다시 띄운다.
+- **python 탐색** - `python3`, `python`, `py -3` 순으로 실제 실행해 고른다(Microsoft Store 실행 별칭 스텁은 실행 실패로 걸러진다). `PYTHONUTF8=1` 을 모든 호출에 건다.
+- **산출물 열기** - PATH 의 `code`/`cursor`/`windsurf` CLI, 없으면 `cmd //c start`(확장자 기본 앱). `//c` 는 MSYS 경로 변환을 피한 `/c` 스위치다.
+- **훅 file_path 표기**(표 #14), `~/.claude` protected path 규칙이 Windows 에서도 같은지, `claude` 가 `.cmd` 셔임으로 PATH 에 잡히는지 - 미확인.
+- CRLF: 저장소의 `.gitattributes`(`* text=auto eol=lf`)가 막고, 모드/버전 파일 읽기는 `\r` 과 BOM 을 지운다. 이미 CRLF 로 받은 clone 은 `git ls-files -z | xargs -0 sed -i 's/\r$//'` 로 되돌린다(`reset --hard` 는 로컬 노트북 편집을 지우므로 쓰지 않는다).
 
 ## 5. 실측 기록 (2026-09-03, macOS, 2.1.258)
 
-- 헤드리스 `claude -p --permission-mode acceptEdits` 로 `~/.claude` 아래 쓰기: `Edit`/`Write` 는 거부, `Bash` 는 통과. 즉 protected path 검사는 파일 편집 도구에만 걸린다.
+- 헤드리스 `claude -p --permission-mode acceptEdits` 로 `~/.claude` 아래 쓰기: `Edit`/`Write` 거부. **Bash 셸 리다이렉트(`> 파일`)도 같은 문자열 `which is a sensitive file` 로 거부**(관측 2026-09-03, `.curator/logs/20260902T172923Z-eval-session-58298.log:4`). 즉 protected path 검사는 파일 편집 도구 한정이 아니라 쓰기 경로 자체에 걸린다 - 초기 기록의 "`Bash` 는 통과" 는 오류였다(§3).
+- 헤드리스 `claude -p --permission-mode bypassPermissions`(`scripts/curator-perm.mode` = `bypassPermissions`) 로 `~/.claude` 아래 쓰기: Bash 리다이렉트, heredoc 쓰기 통과(`Write` 도구는 이번 실행에서 미사용 - 미확인). done 파일과 노트북 본문 기록 정상(스모크 2026-09-03, id `20260902T174528Z-smoke-bypass-63799`). 표 #1 의 "건너뛰는 유일한 수단은 bypassPermissions" 가 양방향으로 실증됐다.
 - 데몬 실제 실행(harness-refresh 1건): 큐 투입, 잠금, 항목 이동, opus 실행, 종료까지 정상. 쓰기 단계에서 거부돼 done 파일과 `.pending.md` 를 남기지 못했다. **`scripts/curator-perm.mode` 가 없으면 데몬은 판정만 하고 기록을 못 한다.**
 - 그 실행에서 데몬의 거부 판정이 `failed` 로 잘못 찍혔다 - 모델이 "쓰기 권한 문제" 로 요약해 `requested permissions` 문자열이 로그에 없었다. 판정 패턴을 두 갈래(하네스 메시지와 모델 서술)로 넓혔다.
+
+- 2026-09-03 07시 - 데몬 개정 실측(macOS, claude 스텁): `--output-format json` 판독과 denied 판정, 즉시 실패 시 데몬 중단(큐 보존), 벽시계 상한 초과 시 자식 kill 후 timeout, `ctl kill` 시 자식 종료 + 항목 failed 마감, 크래시 뒤 processing 항목 1회 재시도. 헤드리스 bypassPermissions 에서 `Write` 도구로 `~/.claude` 아래 파일 생성 통과(sonnet 프로브).
 
 verified: 2026-09-03 (Claude Code 2.1.258, 이 환경의 실측 + 공식 문서)

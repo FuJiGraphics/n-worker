@@ -34,7 +34,7 @@
 
 **자가 점검 (html 을 쓴 직후 실행한다):**
 ```bash
-grep -nE "\*\*|\x60\x60\x60" <파일>.html      # 마크다운 잔재 - 결과 0
+grep -nE '\*\*|```' <파일>.html      # 마크다운 잔재 - 결과 0 (\x60 은 GNU grep 에 없다 - 따옴표 안 백틱을 쓴다)
 grep -n "{{" <파일>.html                       # placeholder 치환 누락 - 결과 0
 grep -nE "<script|src=\"http|href=\"http" <파일>.html   # 자립형 위반 - 결과 0
 ```
@@ -49,7 +49,7 @@ grep -nE "<script|src=\"http|href=\"http" <파일>.html   # 자립형 위반 - �
 저장 디렉터리, 파일명, 변환 도구 경로는 작업 명세로 받는다 - 관례의 원본은 노트북이고, 이 파일에는 사용자/프로젝트/환경 종속 사실을 적지 않는다. pdf 를 선택받으면:
 
 1. `$WORK/report.html` 을 아래 구조 규칙대로 생성하고 §2 자가 점검을 돌린다.
-2. Chrome 계열 headless 로 변환한다. 실행 파일은 명세의 경로를 쓰고, 없으면 환경에서 찾는다(macOS 앱 경로, PATH 의 `google-chrome`/`chromium` 순):
+2. Chrome 계열 headless 로 변환한다. 실행 파일은 명세의 경로를 쓰고, 없으면 환경에서 찾는다(macOS 앱 경로, PATH 의 `google-chrome`/`chromium`, Windows 는 `%ProgramFiles%/Google/Chrome/Application/chrome.exe` 와 Edge `%ProgramFiles(x86)%/Microsoft/Edge/Application/msedge.exe` 순 - Edge 도 Chromium 이라 같은 플래그가 통한다):
 ```bash
 "<chrome 실행 파일>" --headless --disable-gpu \
   --no-pdf-header-footer --print-to-pdf="<저장 디렉터리>/<파일명>.pdf" "file://$WORK/report.html"

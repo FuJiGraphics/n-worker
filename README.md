@@ -7,7 +7,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT license"></a>
   <a href="https://claude.com/claude-code"><img src="https://img.shields.io/badge/Claude%20Code-Skill-d97757?logo=anthropic&logoColor=white" alt="Claude Code skill"></a>
   <img src="https://img.shields.io/badge/lang-%ED%95%9C%EA%B5%AD%EC%96%B4-blue" alt="Korean">
-  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey" alt="platform">
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows%20(Git%20Bash)-lightgrey" alt="platform">
 </p>
 
 ```bash
@@ -122,21 +122,27 @@ Claude Code 세션에서 프로젝트 폴더를 열고:
 - **세션과 독립된 프로세스**다. 세션이 닫혀도 남은 큐를 마저 처리하고, 큐가 비면 스스로 종료한다.
 - **동시에 여러 세션이 넣어도 하나만 돈다.** 잠금 파일로 단일 실행을 보장하고, 뒤에 들어온 요청은 큐에 쌓인다. 노트북에 쓰는 주체가 기계적으로 하나뿐이라 충돌이 없다.
 - **말하지 않는다.** 진행 보고나 요약을 출력하지 않고 도구 호출만 한다. 결과는 세션에 전달되지 않으며, 실패했을 때만 다음 세션 시작 때 한 줄 뜬다.
-- 모델은 `opus`(`notebook/common/model-routing.md` 에서 읽으므로 세대가 바뀌어도 그 파일만 고친다). 하위 서브에이전트는 쓰지 않는다 - 헤드리스에서 서브의 권한 상속이 문서화되지 않았고 실측에서 거부됐다.
+- 모델은 `opus` 별칭(세대 자동 추적)이고 effort 는 모드별로 고정이다 - 배치 근거는 `notebook/common/model-routing.md` §3, 실제 플래그는 `scripts/curator-daemon.sh`. 하위 서브에이전트는 쓰지 않는다 - 헤드리스에서 서브의 권한 상속이 문서화되지 않았고 실측에서 거부됐다.
+- 항목마다 벽시계 상한(40분)이 있고, 넘기면 자식을 죽이고 `timeout` 으로 기록한다. `claude` 가 몇 초 만에 비정상 종료하면(플래그, 로그인 문제) 큐를 태우지 않고 데몬이 멈춘다. 데몬이 처리 중 죽으면 다음 기동 때 그 항목을 한 번만 다시 돌린다.
 
-### 기기마다 한 번: 데몬 쓰기 권한
+### 데몬의 권한 - 알고 쓰기
 
-이 스킬을 `~/.claude/skills/` 아래에 설치하면 노트북도 그 아래에 놓인다. Claude Code 는 `.claude/` 를 protected path 로 취급해 파일 편집마다 사람의 승인을 요구하는데, 데몬은 `claude -p` 로 도는 비대화형 프로세스라 승인할 사람이 없다. 그래서 **기본 상태에서 데몬은 판정만 하고 기록을 못 하며, 결과가 `denied` 로 남는다.**
+> [!IMPORTANT]
+> **curator 데몬은 승인 프롬프트 없이 도는 설정이 기본값이다**(`scripts/curator-perm.mode` 의 `bypassPermissions`). 이 스킬을 `~/.claude/skills/` 아래에 설치하면 노트북도 그 아래에 놓이는데, Claude Code 는 `.claude/` 를 protected path 로 취급해 파일 편집마다 사람의 승인을 요구한다. 데몬은 `claude -p` 로 도는 비대화형 프로세스라 승인할 사람이 없고, 이 설정이 없으면 판정만 하고 기록을 못 한다.
 
-켜려면 그 기기에서 한 줄 실행한다(설치할 때마다 한 번, 저장소에는 안전한 기본값이 들어 있다):
+적용 범위와 제한:
+
+- **데몬 프로세스에만 적용된다.** 사용자의 대화 세션 권한은 그대로다.
+- 데몬의 도구는 Read, Write, Edit, Grep, Glob, Bash 로 한정된다.
+- git 쓰기 명령(`commit`, `push`, `checkout`, `reset`, `stash`, `rebase`, `merge`)과 `rm`, `sudo` 는 거부 규칙으로 막는다. 거부 규칙은 이 모드에서도 유효하다.
+- MCP 서버를 붙이지 않는다. 프로젝트 폴더는 읽기 전용으로 넘기고, 쓰기 대상은 노트북 폴더다.
+- 그래도 이것은 **자기 기기에서 감독 없이 도는 에이전트**다. 그 전제가 불편하면 아래로 끈다.
 
 ```bash
-echo bypassPermissions > ~/.claude/skills/n-worker/scripts/curator-perm.mode
+echo acceptEdits > ~/.claude/skills/n-worker/scripts/curator-perm.mode
 ```
 
-이 설정은 **curator 데몬 프로세스에만** 적용되고, 사용자의 대화 세션 권한은 건드리지 않는다. 데몬 쪽 범위는 따로 좁혀 둔다: 도구를 Read, Write, Edit, Grep, Glob, Bash 로 한정하고, git 쓰기 명령과 `rm`, `sudo` 는 거부 규칙으로 막고(거부 규칙은 이 모드에서도 유효하다), MCP 서버를 붙이지 않고, 프로젝트 폴더는 읽기 전용으로 넘긴다. 켜지 않은 기기에서도 스킬의 나머지는 정상 동작한다 - 노트북에 새 기록이 쌓이지 않을 뿐이다.
-
-기록을 자동화하지 않고 승인을 유지하고 싶으면 파일을 그대로 두면 된다. `scripts/curator-ctl.sh results` 에 curator 의 판정이 남으므로, 내용을 보고 직접 반영할 수 있다.
+끈 기기에서도 스킬의 나머지는 정상 동작한다. 노트북에 새 기록이 쌓이지 않을 뿐이고, curator 의 판정은 `scripts/curator-ctl.sh results` 에 남으므로 보고 직접 반영할 수 있다.
 
 ```bash
 scripts/curator-ctl.sh status    # 데몬 상태, 큐 길이, 현재 항목
@@ -170,7 +176,8 @@ scripts/curator-ctl.sh stop      # 현재 항목이 끝나면 종료
 
 - `scripts/nb-gate.mode` 가 `shadow` 면 기록만 하고 막지 않는다(기본값). `block` 으로 바꾸면 대조 기록 없는 프로젝트 파일 수정이 거부된다.
 - 게이트는 n-worker 세션만 검사한다. `nb-load` 가 세션 id(`CLAUDE_CODE_SESSION_ID`)를 마커에 적고, 훅은 그 id 와 정확히 맞는 세션의 편집만 판정한다. 다른 세션의 편집은 기록도 남기지 않는다.
-- 훅 없이도 스킬은 동작한다 - 게이트는 규율의 보험이다. `jq` 가 없으면 조용히 통과한다.
+- 훅 없이도 스킬은 동작한다 - 게이트는 규율의 보험이다. `jq` 가 없으면 python 으로 훅 입력을 읽는다.
+- Windows 는 `"command": "bash \"C:/Users/<이름>/.claude/skills/n-worker/scripts/nb-gate.sh\""` 처럼 슬래시 절대경로로 등록한다(`$HOME` 확장은 셸에 따라 다르다).
 
 ## 폴더 구조
 
@@ -188,6 +195,7 @@ n-worker/
 │   ├── curator.md         # 노트북 쓰기 전담 (등록/기록/정비) - 데몬이 항목마다 읽힌다
 │   └── reporter.md        # 결과 보고서 생성 서브
 ├── scripts/
+│   ├── _lib.sh            # 공용 함수 (플랫폼 판별, python 탐색, 경로 정규화, 데몬 분리)
 │   ├── nb-load.sh         # P0 노트북 로더 (registry + 3레이어 인덱스를 한 번에)
 │   ├── nb-grep.sh         # 함정 대조 (3레이어 인덱스 grep + 히트 본문 동봉 + 로그)
 │   ├── nb-gate.sh         # PreToolUse 게이트 (선택)
@@ -195,7 +203,7 @@ n-worker/
 │   ├── curator-daemon.sh  # 큐를 순서대로 처리하는 독립 프로세스
 │   ├── curator-perm.mode  # curator 데몬의 권한 모드 (한 단어)
 │   ├── curator-ctl.sh     # 데몬 상태 확인, 결과 열람, 중지
-│   ├── wf-summarize.py    # Workflow 결과(journal) 압축 판독
+│   ├── wf-summarize.sh    # Workflow 결과(journal) 압축 판독 (.py 를 환경의 python 으로 실행)
 │   └── open-artifact.sh   # 산출물 열기 (md 를 에디터로)
 ├── notebook/              # 장기 기억 (시드 골격 - 설치 후 여기서 자란다)
 │   ├── common/harness-routing.md  # 이 스킬이 기댄 하네스 동작 목록 (버전 변경 시 재검증)
@@ -208,10 +216,21 @@ n-worker/
 | 항목 | 내용 |
 |---|---|
 | [Claude Code](https://claude.com/claude-code) | 스킬, 서브에이전트, `AskUserQuestion` 지원 버전 |
-| 셸 | bash (macOS / Linux 검증, Windows 는 Git Bash). 스크립트는 `python3` 이 없으면 `python` 을 쓴다 |
+| 셸 | bash 3.2 이상. macOS 기본 bash, Linux, Windows 는 Git Bash(Claude Code 가 Windows 에서 쓰는 셸) |
+| python | 3.7 이상. 모든 스크립트가 쓴다. `python3`, `python`, `py -3` 순으로 실제 실행되는 것을 고른다(Windows 의 Store 스텁은 걸러진다) |
 | `claude` CLI | curator 데몬이 `claude -p` 로 실행되므로 PATH 에 있어야 한다 |
-| `jq` | 노트북 게이트(선택 설정)만 쓴다. 없으면 게이트는 조용히 통과한다 |
+| `jq` | 선택. 노트북 게이트가 있으면 쓰고, 없으면 python 으로 대신한다 |
 | 언어 | 스킬 본문과 진행 대화가 한국어다. 영어 환경에서도 동작하지만 질문과 플랜이 한국어로 나온다 |
+
+## Windows 메모
+
+macOS 에서 만든 스킬이고 Windows 는 Git for Windows 의미론으로 맞춘 뒤 스텁으로 논리만 검증했다(실기 검증은 아직 없다 - `notebook/common/harness-routing.md` §4). 알아 둘 것:
+
+- 설치 위치는 같다: `C:/Users/<이름>/.claude/skills/n-worker`. clone 은 Git Bash 에서 한다.
+- 경로 표기: 스크립트가 모델에게 주는 경로는 전부 `C:/Users/...`(슬래시) 형태다. 플랜과 도구 호출에도 그 표기를 그대로 쓴다.
+- 줄 끝: 저장소의 `.gitattributes` 가 LF 를 강제한다. 이미 CRLF 로 받았다면 Git Bash 에서 `git ls-files -z | xargs -0 sed -i 's/\r$//'`.
+- 산출물 열기: PATH 의 `code`/`cursor`/`windsurf` CLI 를 쓰고, 없으면 확장자 기본 앱으로 연다.
+- 문제가 나면 `scripts/curator-ctl.sh log` 와 `.active/gate.log` 를 먼저 본다.
 
 ## License
 
