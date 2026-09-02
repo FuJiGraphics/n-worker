@@ -36,6 +36,10 @@ LAYERS="$LAYERS $NB/common"
 print_body() {
   bf="$1"
   [ -f "$bf" ] || { echo "   (본문 파일 없음: $bf)"; return; }
+  # 같은 세션에서 같은 본문은 한 번만 동봉한다 - 두 번째부터는 경로만(실측 8KB 중복). 대조 기록(checks.log)은 그대로 남는다
+  BODIES="$ACTIVE/$HASH.bodies"; touch "$BODIES"
+  if grep -qxF "$bf" "$BODIES"; then echo "   --- 본문: $bf (이미 이 세션에 출력됨 - 필요하면 Read)"; return; fi
+  echo "$bf" >> "$BODIES"
   n="$(wc -l < "$bf" | tr -d ' ')"
   echo "   --- 본문: $bf ($n 줄)"
   if [ "$n" -le 40 ]; then

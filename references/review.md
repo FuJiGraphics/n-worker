@@ -86,9 +86,13 @@ export const meta = {
 }
 // 스크립트를 작성할 때 §3 의 REVIEW_SCHEMA 리터럴을 이 자리에 그대로 붙인다 - 주석만 남기면 ReferenceError 다.
 phase('Review')
-// 함정 1: 플랜/초안은 args 로 넘기지 말고 스크립트 리터럴로 박는다.
-// args 는 문자열화되거나 전달이 누락되어도 조용히 넘어가서, 서브가 undefined 를 입력으로 믿고 완주해 버린다.
-const plan = `<< 메인이 플랜의 변경 계획 + 코드 초안을 여기 리터럴로 >>`
+// 함정 1: 플랜/초안은 args 로 넘기지 않는다 - args 는 문자열화되거나 전달이 누락되어도 조용히 넘어가서,
+// 서브가 undefined 를 입력으로 믿고 완주해 버린다. 그렇다고 플랜 전문을 리터럴로 박지도 않는다 - 그 분량(실측 10~28KB)이
+// 메인 출력으로 한 번 더 쌓인다. 프롬프트 문자열에는 **플랜 파일 절대경로 + 3줄 요약**만 싣고 서브가 Read 로 전문을 읽게 한다
+// (경로는 args 가 아니라 프롬프트라 유실되지 않는다). 조건: 스폰 직전에 플랜 파일이 최종본이어야 한다. 아래 '입력 미전달' 가드는 그대로.
+const planPath = '<$WORK>/plan.md'
+const planGist = `<< 3줄: 무엇을 바꾸나 / 어디까지 / 회귀 경계 >>`
+const plan = `플랜 전문: ${planPath} (변경 설계 표, 코드 초안, 검증 계획의 위험 케이스는 이 파일에 있다 - 먼저 Read 하라)\n요약: ${planGist}`
 const projectCtx = `프로젝트 루트: <절대경로> / facts: <절대경로> / 컨벤션 문서: <경로 또는 '없음'>`
 const lessonPaths = []  // 이번 작업에 걸리는 노트북 lessons 절대경로 목록 (메인이 채운다)
 const risks = []        // 알려진 수용 리스크도 리터럴로
@@ -115,12 +119,16 @@ const out = await parallel(lenses.map(L => () =>
   agent(`${base}\n\n네 렌즈: ${L.q}`, { label: L.label, phase: 'Review', agentType: 'Explore', model: L.model, effort: L.effort, schema: REVIEW_SCHEMA })))
 // 함정 3: 죽은 서브는 null 로 온다. 그냥 filter 하면 "어느 렌즈가 죽었는지"가 사라져 재시도 규칙을 실행할 수 없다.
 const dead = lenses.filter((L, i) => !out[i]).map(L => L.label)
-return { results: out.filter(Boolean), dead }  // dead 가 비어 있지 않으면 메인이 그 렌즈만 1회 재시도한다. 취합, 분기, 사용자 질문은 전부 메인의 일이다.
+// 함정 4: return 값은 완료 알림으로 메인 컨텍스트에 통째로 들어간다(24KB 에서 잘려 꼬리 유실 - 실측 51KB 결과에서 27KB 만 도착).
+// 그래서 전문을 return 하지 않는다. 건수와 판정만 돌려주고, 전문은 하네스가 남기는 journal.jsonl 을
+// `python3 <스킬>/scripts/wf-summarize.py <journal>` 로 압축해 읽는다(critical 은 전문, 나머지 축약. journal 경로는 완료 알림의 diagnostics 에 온다).
+return { dead, lenses: out.map((r, i) => ({ lens: lenses[i].label, findings: r ? r.findings.length : null, clean: r ? r.cleanWithinLens : null })) }
+// dead 가 비어 있지 않으면 메인이 그 렌즈만 1회 재시도한다. 취합, 분기, 사용자 질문은 전부 메인의 일이다.
 ```
 
 기타 런타임 함정: `meta` 는 순수 리터럴만 허용된다. `Date.now()`, `Math.random()`, 인자 없는 `new Date()` 는 호출하면 throw 한다. 스크립트 자신은 파일과 git 에 접근할 수 없다(그것은 `agent()` 가 한다). `parallel()` 은 전부 끝나야 반환되는 배리어이고, throw 한 항목은 null 로 떨어진다. 동시 실행 상한은 자동이므로 직접 상한을 두지 않는다. 같은 스크립트가 두 번 실패(파싱/런타임)하면 골격을 접고 raw `Agent` 로 같은 일을 직접 시킨다 - 디버그 무한루프를 막기 위해서다. 골격은 수단이지 목적이 아니다.
 
-P1 의 병렬 조사는 같은 골격에서 렌즈 대신 체크리스트 항목을 나눠 맡기는 형태다. probe 는 답이 코드에 있는 조사형이므로 `{ label: 'probe:<항목>', agentType: 'Explore', model: 'sonnet', effort: 'low' }` 을 기본값으로 하고(사전 조사는 좁게, 병렬로 - SKILL.md 오케스트레이션 기본 원칙), 항목마다 메인이 조정한다 - 구조를 따라가야 하면 medium, 설계 의도까지 읽어야 하는 항목이면 추론형으로 보고 `model: 'opus'` + effort high 로 올린다. 반환 schema 는 `{ item, verdict: 'ok|broken|notfound', evidence(path:line), note }` 로 한다.
+P1 의 병렬 조사는 같은 골격에서 렌즈 대신 체크리스트 항목을 나눠 맡기는 형태다. **묶음 크기는 서브당 파일 3~6개, 상한 6** - 서브 하나에 스킬,컨벤션 문서를 읽는 고정비(실측 sonnet 5~6만 토큰)가 파일 크기와 무관하게 붙으므로 9줄짜리 파일에 서브 하나를 주지 않는다(실측 23개 서브 93만 토큰). 깊이는 schema 로 지킨다 - 파일별 항목 배열을 두고 파일 수와 항목 수가 다르면 그 서브만 재실행. probe 는 답이 코드에 있는 조사형이므로 `{ label: 'probe:<항목>', agentType: 'Explore', model: 'sonnet', effort: 'low' }` 을 기본값으로 하고(사전 조사는 좁게, 병렬로 - SKILL.md 오케스트레이션 기본 원칙), 항목마다 메인이 조정한다 - 구조를 따라가야 하면 medium, 설계 의도까지 읽어야 하는 항목이면 추론형으로 보고 `model: 'opus'` + effort high 로 올린다. 반환 schema 는 `{ item, verdict: 'ok|broken|notfound', evidence(path:line), note }` 로 한다.
 
 ## 5. 취합 후 분기 (메인)
 
