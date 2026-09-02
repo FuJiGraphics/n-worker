@@ -23,7 +23,11 @@ u = html.unescape
 def cut(s, n): s = u(str(s)).replace("\n", " "); return s if len(s) <= n else s[:n] + "…"
 rank = {"critical": 0, "behavior": 0, "visual": 1, "concern": 1, "timing": 2, "minor": 3, "none": 3}
 print(f"에이전트 {len(res)}개 (journal: {a.journal})")
-if not res: sys.exit(0)
+if not res:
+    # 0건은 정상 결과가 아니다 - journal 형식 변경(하네스 갱신) 또는 경로 오류다(notebook/common/harness-routing.md #6).
+    # 조용히 빈 출력을 내면 메인이 "리뷰 지적 없음"으로 읽는다. 소리 나게 실패한다.
+    print("오류: journal 에서 결과를 0건 파싱했다 - 하네스의 journal 형식이 바뀌었거나 경로가 틀렸다. 서브 반환 전문(Workflow return)으로 폴백하라.", file=sys.stderr)
+    sys.exit(1)
 shape = res[0][1]
 if "findings" in shape:
     allf = [dict(f, _agent=k[:24]) for k, r in res for f in r.get("findings", [])]

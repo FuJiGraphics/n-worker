@@ -8,6 +8,9 @@
 ## report-conventions - [report-conventions.md](report-conventions.md)
 > P5 보고서를 만들 때 본다. 저장 위치, 파일명 관례. 항목이 비면 첫 보고서 때 사용자에게 묻고 curator 가 채운다.
 
+## harness-routing - [harness-routing.md](harness-routing.md)
+> 이 스킬이 관측 기반으로 기댄 하네스(Claude Code) 동작 목록 - 항목마다 가정, 사용 위치, 근거, 깨졌을 때 폴백. nb-load 가 `checked_version` 과 현재 버전을 비교해 다르면 알린다 → curator `harness-refresh`. curator 데몬 권한 모드의 근거는 #1.
+
 ## lessons - [lessons-index.md](lessons-index.md)
 > 이번 작업에 도구 함정/일반 원칙류가 걸릴 것 같으면 펼친다. 기록이 쌓여 인덱스가 커지면 curator 가 도메인별로 분리한다.
 
