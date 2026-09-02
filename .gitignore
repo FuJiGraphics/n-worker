@@ -1,5 +1,7 @@
 .DS_Store
 .active/
+__pycache__/
+*.pyc
 
 # 노트북은 설치한 기기에서 자란다 - 시드 골격만 추적하고 누적 지식은 로컬에 남긴다
 notebook/projects/*

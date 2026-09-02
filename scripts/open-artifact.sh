@@ -8,8 +8,11 @@
 # 맡긴다.
 #
 # 사용법:   open-artifact.sh <경로> [<경로>...]
-# 강제 지정: CLAUDE_EDITOR='code -r'  /  CLAUDE_EDITOR='open -a Zed'
-#           설정되어 있으면 감지를 건너뛰고 이 명령 뒤에 파일 경로를 붙여 실행한다.
+# 강제 지정: CLAUDE_EDITOR='code -r'  /  CLAUDE_EDITOR='open -a "Visual Studio Code"'
+#           설정되어 있으면 감지를 건너뛰고 이 명령 뒤에 파일 경로를 붙여 실행한다(따옴표는 셸 규칙대로 읽는다).
+#
+# 플랫폼: macOS 는 .app 번들과 실행 중 프로세스로 에디터를 찾는다. Windows(Git Bash)는 PATH 의 code/cursor/windsurf CLI,
+# 없으면 `cmd /c start`(확장자 기본 앱). Linux 는 code 계열 CLI, 없으면 xdg-open.
 #
 # 무엇으로 열었는지 stdout 한 줄로 보고한다. 하나라도 실패하면 종료 코드 1.
 
@@ -66,9 +69,8 @@ use_app() { # $1 = .app 경로, $2 = 감지 사유
 
 detect_editor() {
   if [ -n "${CLAUDE_EDITOR:-}" ]; then
-    # 옵션이 붙은 명령을 허용하려면 공백 분할이 필요하다.
-    # shellcheck disable=SC2206
-    OPENER=($CLAUDE_EDITOR)
+    # 옵션이 붙은 명령을 허용한다. 따옴표로 묶인 인자(앱 이름의 공백)도 셸 규칙대로 나눈다.
+    eval "OPENER=($CLAUDE_EDITOR)"
     OPENER_DESC="CLAUDE_EDITOR"
     return
   fi
@@ -129,11 +131,45 @@ detect_editor() {
   exit 2
 }
 
-# macOS 밖에서는 감지 근거(.app 번들, LaunchServices)가 없다. 표준 수단에 맡긴다.
+is_render() {   # 렌더/전용 앱이 목적인 것들. html 을 에디터로 보내면 소스가 뜬다.
+  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+  *.html | *.htm | *.pdf | *.png | *.jpg | *.jpeg | *.gif | *.svg | *.webp | *.mp4 | *.mov | \
+    *.xlsx | *.xls | *.numbers | *.docx | *.pptx | *.key | *.pages) return 0 ;;
+  *) return 1 ;;
+  esac
+}
+
+# macOS 밖에서는 감지 근거(.app 번들, LaunchServices)가 없다. CLI 에디터와 플랫폼 기본 열기로 간다.
 if [ "$(uname -s)" != "Darwin" ]; then
-  rc=0
-  for f in "$@"; do ${CLAUDE_EDITOR:-xdg-open} "$f" || rc=1; done
-  exit $rc
+  case "$(uname -s)" in MINGW* | MSYS* | CYGWIN*) WIN=1 ;; *) WIN=0 ;; esac
+  OPENER=(); OPENER_DESC=""
+  if [ -n "${CLAUDE_EDITOR:-}" ]; then
+    eval "OPENER=($CLAUDE_EDITOR)"; OPENER_DESC="CLAUDE_EDITOR"
+  else
+    # VS Code 계열은 설치 시 CLI 를 PATH 에 넣는다(Windows 는 code.cmd). 통합 터미널이면 그 IDE 가 우선.
+    for c in code cursor windsurf codium zed subl; do
+      if command -v "$c" >/dev/null 2>&1; then
+        case "$c" in code | cursor | windsurf | codium) OPENER=("$c" -r) ;; *) OPENER=("$c") ;; esac
+        OPENER_DESC="$c (PATH)"; break
+      fi
+    done
+  fi
+  status=0
+  for f in "$@"; do
+    if [ ! -e "$f" ]; then printf 'open-artifact: 파일 없음 - %s\n' "$f" >&2; status=1; continue; fi
+    if is_render "$f" || [ ${#OPENER[@]} -eq 0 ]; then
+      if [ "$WIN" = 1 ]; then
+        # Git Bash 의 cmd 호출: `//c` 는 MSYS 경로 변환을 피한 /c 스위치, 빈 "" 는 start 의 창 제목 자리.
+        w="$(cygpath -w "$f" 2>/dev/null || printf '%s' "$f")"
+        if cmd //c start "" "$w" >/dev/null 2>&1; then printf '%s -> Windows 기본 앱\n' "$f"; else printf 'open-artifact: 실패 - %s\n' "$f" >&2; status=1; fi
+      else
+        if command -v xdg-open >/dev/null 2>&1 && xdg-open "$f" >/dev/null 2>&1; then printf '%s -> xdg-open(기본 앱)\n' "$f"; else printf 'open-artifact: 실패 - %s (xdg-open 없음 또는 실패)\n' "$f" >&2; status=1; fi
+      fi
+    else
+      if "${OPENER[@]}" "$f"; then printf '%s -> %s\n' "$f" "$OPENER_DESC"; else printf 'open-artifact: 실패 - %s (%s)\n' "$f" "$OPENER_DESC" >&2; status=1; fi
+    fi
+  done
+  exit $status
 fi
 
 status=0

@@ -5,7 +5,13 @@
 사용법: wf-summarize.py <journal.jsonl> [--problem N] [--fix N] [--full critical,behavior] [--json-out <경로>]
 결과 shape 를 보고 모드를 고른다: findings(리뷰/동일성) / members(조사) / status+created(생산) / 그 밖은 키 요약.
 critical(behavior) 은 전문, 나머지는 축약. 원문은 journal 에 그대로 남는다."""
-import json, sys, html, argparse
+import json, sys, html, argparse, re
+# Windows 의 파이프 출력은 기본 로케일(cp949 등)로 인코딩된다 - 하네스는 UTF-8 로 읽으므로 고정한다.
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        try: _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception: pass
+def bn(p): return re.split(r"[\\/]", str(p))[-1]   # Windows 역슬래시 경로도 파일명만
 ap = argparse.ArgumentParser()
 ap.add_argument("journal"); ap.add_argument("--problem", type=int, default=240); ap.add_argument("--fix", type=int, default=160)
 ap.add_argument("--full", default="critical,behavior"); ap.add_argument("--json-out", default=None)
@@ -20,7 +26,7 @@ for line in open(a.journal, encoding="utf-8"):
 if a.json_out:
     json.dump([r for _, r in res], open(a.json_out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
 u = html.unescape
-def cut(s, n): s = u(str(s)).replace("\n", " "); return s if len(s) <= n else s[:n] + "…"
+def cut(s, n): s = u(str(s)).replace("\n", " "); return s if len(s) <= n else s[:n] + "..."
 rank = {"critical": 0, "behavior": 0, "visual": 1, "concern": 1, "timing": 2, "minor": 3, "none": 3}
 print(f"에이전트 {len(res)}개 (journal: {a.journal})")
 if not res:
@@ -30,7 +36,7 @@ if not res:
     sys.exit(1)
 shape = res[0][1]
 if "findings" in shape:
-    allf = [dict(f, _agent=k[:24]) for k, r in res for f in r.get("findings", [])]
+    allf = [dict(f, _agent=k[:24]) for k, r in res for f in (r.get("findings") or [])]
     counts = {}
     for f in allf: counts[f.get("severity", "?")] = counts.get(f.get("severity", "?"), 0) + 1
     clean = [k[:24] for k, r in res if r.get("cleanWithinLens", r.get("clean")) and not r.get("findings")]
@@ -49,14 +55,15 @@ if "findings" in shape:
 elif "members" in shape:
     print("| 파일 | 줄 | 베이스 | ctrl/both/view | 로직 요약 |\n|---|---|---|---|---|")
     for _, r in sorted(res, key=lambda x: x[1].get("file", "")):
-        ms = r["members"]; c = sum(m.get("target") == "controller" for m in ms); b = sum(m.get("target") == "both" for m in ms); v = len(ms) - c - b
-        print(f"| {r.get('file','').split('/')[-1]} | {r.get('lines','?')} | {cut(r.get('baseType',''),20)} | {c}/{b}/{v} | {cut(r.get('logicSummary',''),100).replace('|','/')} |")
+        ms = r.get("members") or []; c = sum(m.get("target") == "controller" for m in ms); b = sum(m.get("target") == "both" for m in ms); v = len(ms) - c - b
+        print(f"| {bn(r.get('file',''))} | {r.get('lines','?')} | {cut(r.get('baseType',''),20)} | {c}/{b}/{v} | {cut(r.get('logicSummary',''),100).replace('|','/')} |")
 elif "status" in shape and "created" in shape:
     for _, r in res:
-        print(f"\n## {r.get('batch', r.get('id',''))} status={r['status']} created={len(r.get('created',[]))} modified={len(r.get('modified',[]))} mismatch={cut(r.get('mismatch','') or '없음', 200)}")
-        print("  생성:", ", ".join(p.split("/")[-1] for p in r.get("created", [])))
-        print("  수정:", ", ".join(p.split("/")[-1] for p in r.get("modified", [])))
-        for q in r.get("questions", []): print("  Q:", cut(q, 300))
+        # 항목마다 모양이 다를 수 있다(하나가 {"error": ...} 로 오는 경우) - 키 부재로 전체가 죽지 않게 get 으로 읽는다
+        print(f"\n## {r.get('batch', r.get('id',''))} status={r.get('status','?')} created={len(r.get('created') or [])} modified={len(r.get('modified') or [])} mismatch={cut(r.get('mismatch','') or '없음', 200)}")
+        print("  생성:", ", ".join(bn(p) for p in (r.get("created") or [])))
+        print("  수정:", ", ".join(bn(p) for p in (r.get("modified") or [])))
+        for q in (r.get("questions") or []): print("  Q:", cut(q, 300))
 else:
     for k, r in res:
         print(f"\n## {k[:24]}")
