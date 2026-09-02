@@ -122,8 +122,21 @@ Claude Code 세션에서 프로젝트 폴더를 열고:
 - **세션과 독립된 프로세스**다. 세션이 닫혀도 남은 큐를 마저 처리하고, 큐가 비면 스스로 종료한다.
 - **동시에 여러 세션이 넣어도 하나만 돈다.** 잠금 파일로 단일 실행을 보장하고, 뒤에 들어온 요청은 큐에 쌓인다. 노트북에 쓰는 주체가 기계적으로 하나뿐이라 충돌이 없다.
 - **말하지 않는다.** 진행 보고나 요약을 출력하지 않고 도구 호출만 한다. 결과는 세션에 전달되지 않으며, 실패했을 때만 다음 세션 시작 때 한 줄 뜬다.
-- **권한 모드는 `scripts/curator-perm.mode` 한 단어가 정하고, 배포 기본값은 `bypassPermissions` 다.** 노트북이 `~/.claude/` 아래에 있고 Claude Code 는 `.claude/` 를 protected path 로 취급해, 헤드리스 `claude -p` 에서는 `acceptEdits` 로도, allow 규칙으로도, 훅으로도 쓰기가 거부된다. 문서화된 유일한 우회가 bypass 모드다. 대신 범위를 좁힌다: `--tools` 로 도구를 Read, Edit, Write, Grep, Glob, Bash 로 한정하고, `--disallowedTools` 로 git 쓰기 명령, `rm`, `sudo` 를 막고(deny 규칙은 bypass 모드에서도 유효), MCP 서버를 붙이지 않는다. 파일을 `acceptEdits` 로 바꾸면 노트북 쓰기가 거부되고 결과가 `denied` 로 남는다.
 - 모델은 `opus`(`notebook/common/model-routing.md` 에서 읽으므로 세대가 바뀌어도 그 파일만 고친다). 하위 서브에이전트는 쓰지 않는다 - 헤드리스에서 서브의 권한 상속이 문서화되지 않았고 실측에서 거부됐다.
+
+### 기기마다 한 번: 데몬 쓰기 권한
+
+이 스킬을 `~/.claude/skills/` 아래에 설치하면 노트북도 그 아래에 놓인다. Claude Code 는 `.claude/` 를 protected path 로 취급해 파일 편집마다 사람의 승인을 요구하는데, 데몬은 `claude -p` 로 도는 비대화형 프로세스라 승인할 사람이 없다. 그래서 **기본 상태에서 데몬은 판정만 하고 기록을 못 하며, 결과가 `denied` 로 남는다.**
+
+켜려면 그 기기에서 한 줄 실행한다(설치할 때마다 한 번, 저장소에는 안전한 기본값이 들어 있다):
+
+```bash
+echo bypassPermissions > ~/.claude/skills/n-worker/scripts/curator-perm.mode
+```
+
+이 설정은 **curator 데몬 프로세스에만** 적용되고, 사용자의 대화 세션 권한은 건드리지 않는다. 데몬 쪽 범위는 따로 좁혀 둔다: 도구를 Read, Write, Edit, Grep, Glob, Bash 로 한정하고, git 쓰기 명령과 `rm`, `sudo` 는 거부 규칙으로 막고(거부 규칙은 이 모드에서도 유효하다), MCP 서버를 붙이지 않고, 프로젝트 폴더는 읽기 전용으로 넘긴다. 켜지 않은 기기에서도 스킬의 나머지는 정상 동작한다 - 노트북에 새 기록이 쌓이지 않을 뿐이다.
+
+기록을 자동화하지 않고 승인을 유지하고 싶으면 파일을 그대로 두면 된다. `scripts/curator-ctl.sh results` 에 curator 의 판정이 남으므로, 내용을 보고 직접 반영할 수 있다.
 
 ```bash
 scripts/curator-ctl.sh status    # 데몬 상태, 큐 길이, 현재 항목

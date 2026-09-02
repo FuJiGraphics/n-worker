@@ -31,6 +31,19 @@ tmp=sys.argv[2]+".tmp"; json.dump(d,open(tmp,"w",encoding='utf-8'),ensure_ascii=
 import os; os.replace(tmp,sys.argv[2])
 PY
 echo "큐 투입: $ID"
+# 이 기기에서 curator 가 노트북에 쓸 수 있는 상태인지 한 줄로 알린다.
+# 노트북이 `~/.claude/` 아래면 하네스가 그 경로를 protected path 로 취급해 헤드리스 데몬의 파일 편집이 거부된다
+# (notebook/common/harness-routing.md #1). 그 경우 데몬은 판정만 하고 기록을 못 하므로, 기기마다 한 번 설정이 필요하다.
+PERM_FILE="$SKILL/scripts/curator-perm.mode"
+PERM_NOW="$(cat "$PERM_FILE" 2>/dev/null | tr -d ' \r\n')"
+case "$SKILL" in
+  "$HOME/.claude"/*)
+    if [ "$PERM_NOW" != "bypassPermissions" ]; then
+      echo "주의: 이 기기의 curator 는 노트북에 쓰지 못한다(권한 모드 ${PERM_NOW:-미설정}). 결과가 denied 로 남는다."
+      echo "      켜기: echo bypassPermissions > \"$PERM_FILE\"   (설정 뜻은 README 의 curator 절)"
+    fi
+    ;;
+esac
 # 데몬 생존 확인 - lock/pid 의 프로세스가 살아 있으면 큐만 쌓는다
 if [ -f "$C/lock/pid" ] && kill -0 "$(cat "$C/lock/pid" 2>/dev/null)" 2>/dev/null; then
   echo "데몬 실행 중 (pid $(cat "$C/lock/pid"), 현재: $(cat "$C/lock/current" 2>/dev/null || echo '-')) - 큐에 쌓아 두었다"
