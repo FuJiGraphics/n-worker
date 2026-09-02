@@ -39,4 +39,15 @@ checked_version: claude-code_2-1-258_agent
 
 - 없음 (2026-09-03)
 
+## 4. 미검증 (Windows)
+
+- **cygpath 경로 변환**(`scripts/curator-daemon.sh` 의 `native()`)은 2026-09-03 에 검증 없이 넣었다. 하네스가 Git Bash 에서 `C:\...` 표기를 원한다는 전제이고, POSIX 표기(`/c/Users/...`)를 원한다면 이 변환이 오히려 경로를 깨뜨린다. **윈도우에서 데몬이 경로 오류를 내면 그 함수 호출을 지우고 원래 변수를 그대로 쓰면 된다**(그 상태가 2026-09-03 패치 이전과 같다). macOS/Linux 에는 `cygpath` 가 없어 무영향.
+- 같은 이유로 미검증: Git Bash 에서 `nohup`, `disown` 이 데몬을 터미널에서 떼어내는지(죽어도 큐는 남고 다음 enqueue 가 다시 띄운다), `~/.claude` protected path 규칙이 윈도우에서도 같은지.
+
+## 5. 실측 기록 (2026-09-03, macOS, 2.1.258)
+
+- 헤드리스 `claude -p --permission-mode acceptEdits` 로 `~/.claude` 아래 쓰기: `Edit`/`Write` 는 거부, `Bash` 는 통과. 즉 protected path 검사는 파일 편집 도구에만 걸린다.
+- 데몬 실제 실행(harness-refresh 1건): 큐 투입, 잠금, 항목 이동, opus 실행, 종료까지 정상. 쓰기 단계에서 거부돼 done 파일과 `.pending.md` 를 남기지 못했다. **`scripts/curator-perm.mode` 가 없으면 데몬은 판정만 하고 기록을 못 한다.**
+- 그 실행에서 데몬의 거부 판정이 `failed` 로 잘못 찍혔다 - 모델이 "쓰기 권한 문제" 로 요약해 `requested permissions` 문자열이 로그에 없었다. 판정 패턴을 두 갈래(하네스 메시지와 모델 서술)로 넓혔다.
+
 verified: 2026-09-03 (Claude Code 2.1.258, 이 환경의 실측 + 공식 문서)

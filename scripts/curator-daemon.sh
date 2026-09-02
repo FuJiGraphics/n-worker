@@ -54,7 +54,9 @@ while :; do
   if [ ! -f "$done_file" ]; then
     # denied = 하네스가 도구 호출을 권한으로 거부한 흔적이 있다(harness-routing.md #1 재검증 신호). 그 외는 failed.
     status="failed"
-    grep -q "requested permissions" "$log" 2>/dev/null && status="denied"
+    # 거부 문구는 하네스 메시지와 모델 서술 두 갈래로 온다(실측 2026-09-03: 모델이 "쓰기 권한 문제"로 요약해
+    # "requested permissions" 만 찾으면 failed 로 잘못 찍혔다). 둘 다 본다.
+    grep -qiE "requested permissions|sensitive file|permission denied|쓰기 권한|권한 거부|권한 문제" "$log" 2>/dev/null && status="denied"
     "$PY" - "$done_file" "$id" "$rc" "$log" "$status" <<'PY'
 import json,sys,datetime,os
 p,id_,rc,log,status=sys.argv[1:6]
