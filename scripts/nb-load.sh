@@ -1,6 +1,6 @@
 #!/bin/bash
 # n-worker P0 노트북 로더.
-# 한 번의 호출로: registry + 해당 프로젝트의 3레이어 인덱스 출력, $WORK 생성, 게이트 마커 기록(세션 id 포함),
+# 한 번의 호출로: registry 해당 행 + 해당 프로젝트의 3레이어 인덱스 출력, $WORK 생성, 게이트 마커 기록(세션 id 포함),
 # curator 고장 알림, 하네스 버전 변경 감지, 사용자 판단 대기 항목 알림.
 # 사용법: nb-load.sh <프로젝트 루트 절대경로> [기존 WORK 경로(재실행 시)]
 set -u
@@ -25,7 +25,7 @@ fi
 WORK_T="$(nw_tool_path "$WORK")"; ROOT_T="$(nw_tool_path "$ROOT")"
 
 # registry 에서 슬러그/스택 해석 - 가장 긴 경로 프리픽스가 이긴다. 표기(/c/..., C:/..., C:\...)와 대소문자(Windows, macOS)는 nw_key 가 맞춘다.
-SLUG=""; STACK=""; BEST=-1
+SLUG=""; STACK=""; BEST=-1; BEST_LINE=""
 while IFS= read -r line; do
   case "$line" in "|"*) ;; *) continue ;; esac
   p="$(printf '%s' "$line" | awk -F'|' '{print $2}' | sed 's/^ *//; s/ *$//' | tr -d '\`')"
@@ -33,7 +33,7 @@ while IFS= read -r line; do
   pk="$(nw_key "$p")"
   nw_under "$pk" "$ROOT_KEY" || continue
   [ "${#pk}" -gt "$BEST" ] || continue
-  BEST="${#pk}"
+  BEST="${#pk}"; BEST_LINE="$line"
   SLUG="$(printf '%s' "$line" | awk -F'|' '{print $3}' | sed 's/^ *//; s/ *$//' | tr -d '\`')"
   STACK="$(printf '%s' "$line" | awk -F'|' '{print $4}' | sed 's/^ *//; s/ *$//' | tr -d '\`')"
 done < "$NB/registry.md"
@@ -129,8 +129,19 @@ if [ -s "$PEND" ]; then
   [ -n "$n" ] && [ "$n" != "0" ] && echo "=== 사용자 판단 대기 ${n}건: $(nw_tool_path "$PEND") ===" && echo ""
 fi
 
-echo "===== notebook/registry.md ====="
-cat "$NB/registry.md"
+# registry 는 안내문, 표 머리, 해당 행만 출력한다. 다른 프로젝트 행의 비고가 크면(실측 한 행 23KB) 전문이 P0 를 무관한 정보로 채우고,
+# 그 비용이 "짧은 작업은 노트북을 건너뛴다" 는 우회를 낳는다. 프로젝트 판정(가장 긴 프리픽스)은 위 루프가 끝냈다.
+# 비교값은 ENVIRON 으로 넘긴다 - awk -v 는 백슬래시(Windows 경로)를 이스케이프로 해석한다.
+echo "===== notebook/registry.md (해당 행만 - 전문: $(nw_tool_path "$NB/registry.md")) ====="
+BEST_LINE="$BEST_LINE" awk '
+  function flush() { if (skipped && !flushed) { printf "| (다른 프로젝트 %d행 생략) |\n", skipped; flushed = 1 } }
+  !/^\|/ { if (n) flush(); print; next }
+  { n++ }
+  n <= 2 { print; next }
+  $0 == ENVIRON["BEST_LINE"] { print; next }
+  { skipped++ }
+  END { flush() }
+' "$NB/registry.md"
 echo ""
 
 # 레이어 인덱스 출력 - 레이어 루트의 INDEX.md(라우터)만. 서브 인덱스는 관련 도메인만 모델이 Read 로 열고,
