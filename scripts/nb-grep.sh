@@ -90,4 +90,4 @@ EOF_M
   echo "대조: \"$NAME\" → 히트 $HITS (log #$LN)"
   echo ""
 done
-echo "기록: $LOG (플랜 대조 칸에는 \"히트수 (log #행)\" 로 적는다)"
+echo "기록: $LOG (플랜의 노트북 검색 줄에는 \"히트수 (log #행)\" 로 적는다)"

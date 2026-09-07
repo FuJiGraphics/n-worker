@@ -36,16 +36,24 @@ if not res:
     sys.exit(1)
 shape = res[0][1]
 if "findings" in shape:
-    allf = [dict(f, _agent=k[:24]) for k, r in res for f in (r.get("findings") or [])]
+    # 리뷰어 이름은 결과의 reviewer 필드(review.md §3 schema). journal 의 key 는 라벨이 아니다(harness-routing #6).
+    name = lambda k, r: str(r.get("reviewer") or k)[:24]
+    allf = [dict(f, _agent=name(k, r)) for k, r in res for f in (r.get("findings") or [])]
     counts = {}
     for f in allf: counts[f.get("severity", "?")] = counts.get(f.get("severity", "?"), 0) + 1
-    clean = [k[:24] for k, r in res if r.get("cleanWithinLens", r.get("clean")) and not r.get("findings")]
-    print(f"findings {len(allf)} {counts} / 깨끗한 렌즈 {clean}")
+    clean = [name(k, r) for k, r in res if not r.get("findings")]
+    print(f"findings {len(allf)} {counts} / 지적 0: {clean}")
+    # 지적 0 이 곧 통과는 아니다 - incomplete 나 unverified 가 있는 리뷰어를 먼저 보인다(review.md §2).
+    for k, r in res:
+        st = r.get("status"); unv = r.get("unverified") or []
+        if st not in (None, "complete") or unv:
+            print(f"  ! {name(k, r)}: status={st} unverified={len(unv)}")
+            for x in unv[:8]: print(f"      - {cut(x, 200)}")
     allf.sort(key=lambda f: rank.get(f.get("severity", ""), 9))
     for i, f in enumerate(allf, 1):
         sev = f.get("severity", "?"); big = sev in full
         where = f.get("where") or f"{f.get('file','')} :: {f.get('member','')}"
-        print(f"\n[{i}] {sev.upper()} ({f.get('lens', f['_agent'])[:14]}) @ {cut(where, 110)}")
+        print(f"\n[{i}] {sev.upper()} ({str(f.get('lens') or f['_agent'])[:14]}) @ {cut(where, 110)}")
         if "problem" in f:
             print("  문제:", u(f["problem"]) if big else cut(f["problem"], a.problem))
         else:

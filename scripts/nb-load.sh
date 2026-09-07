@@ -117,7 +117,7 @@ fi
 if [ -f "$HR" ] && [ -n "$HV" ]; then
   CV="$(sed -n 's/^checked_version:[[:space:]]*//p' "$HR" | head -1 | tr -d ' \r')"
   if [ -n "$CV" ] && [ "$CV" != "$HV" ]; then
-    echo "=== 하네스 버전 변경: harness-routing.md 는 $CV 기준, 현재 $HV - curator 를 harness-refresh 모드로 큐에 넣고 진행한다 ==="
+    echo "=== 하네스 버전 변경(정보): harness-routing.md 대조 기준 $CV, 현재 $HV - 스크립트나 Workflow 가 실제로 깨졌을 때만 curator harness-refresh 를 큐에 넣는다 ==="
     echo ""
   fi
 fi
@@ -155,7 +155,7 @@ if [ -n "$SLUG" ]; then
     print_layer "$NB/stacks/$STACK" "stacks/$STACK"
   fi
 else
-  echo "===== 미등록 프로젝트 - SKILL.md P0 register 절차 후 재실행: \"$(nw_tool_path "$SKILL_DIR/scripts/nb-load.sh")\" \"$ROOT_T\" \"$WORK_T\" ====="
+  echo "===== 미등록 프로젝트 - SKILL.md 노트북 절(curator register 큐 투입) 후 재실행: \"$(nw_tool_path "$SKILL_DIR/scripts/nb-load.sh")\" \"$ROOT_T\" \"$WORK_T\" ====="
   echo ""
 fi
 print_layer "$NB/common" "common"

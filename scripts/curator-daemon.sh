@@ -1,7 +1,7 @@
 #!/bin/bash
 # n-worker curator 데몬 - 세션과 독립된 프로세스. 큐를 순서대로 비운다.
 # 단일 실행: lock/ 디렉터리(mkdir 원자성) + pid. 항목마다 새 `claude -p` 1회(컨텍스트 새로, 폭주 방지).
-# 중지: curator-ctl.sh stop (항목 경계에서 종료). 모델 opus + effort 는 model-routing §3 고정 배치.
+# 중지: curator-ctl.sh stop (항목 경계에서 종료). 모델 opus + effort 는 model-routing §3 고정 배치. 턴, 벽시계 상한은 모드별(루프 안 case).
 set -u
 SKILL="$(cd "$(dirname "$(printf '%s' "$0" | tr '\\' '/')")/.." && pwd)"
 SKILL_DIR="$SKILL"
@@ -17,7 +17,7 @@ unset CLAUDECODE CLAUDE_CODE_SESSION_ID CLAUDE_CODE_CHILD_SESSION CLAUDE_CODE_ME
 PERM_MODE="$(cat "$SKILL/scripts/curator-perm.mode" 2>/dev/null | nw_strip)"
 case "$PERM_MODE" in ""|*[!A-Za-z]*) PERM_MODE="acceptEdits" ;; esac
 IDLE_ROUNDS=2; IDLE_SLEEP="${N_WORKER_IDLE_SLEEP:-30}"
-ITEM_MAX_SEC="${N_WORKER_ITEM_MAX_SEC:-2400}"   # 항목당 벽시계 상한(40분). 넘으면 자식 claude 를 죽이고 timeout 으로 기록한다 - 멈춘 자식이 잠금을 영영 쥐지 않게.
+ITEM_MAX_SEC="${N_WORKER_ITEM_MAX_SEC:-}"   # 항목당 벽시계 상한(초) 강제값. 비우면 모드별 기본(루프 안 case). 넘으면 자식 claude 를 죽이고 timeout 으로 기록한다 - 멈춘 자식이 잠금을 영영 쥐지 않게.
 FAST_FAIL_SEC="${N_WORKER_FAST_FAIL_SEC:-20}"  # 이보다 빨리 비정상 종료하면 CLI/플래그/로그인 문제다 - 큐 전체를 초 단위로 태우지 않고 데몬을 멈춘다.
 POLL_SEC="${N_WORKER_POLL_SEC:-15}"
 mkdir -p "$C/queue" "$C/processing" "$C/done" "$C/logs"
@@ -107,7 +107,14 @@ d=json.load(open(sys.argv[1],encoding="utf-8")); print(d.get("project_root",""))
   if [ -z "$mode" ]; then
     rc=2; status="failed"; echo "요청 JSON 을 읽지 못했다 (mode 없음 또는 JSON 오류): $req" > "$log"
   else
-    effort="high"; case "$mode" in register|model-refresh|harness-refresh) effort="medium";; esac
+    # 모드별 예산. 실측(record 58회: 중앙값 48턴/9분, p90 83턴/15분, 최대 107턴/20분. 갱신류: 최대 16턴/2분)에서 정상 실행을 덮되 폭주를 자른다.
+    # record 는 메인의 제안을 옮겨 적는 일이라 medium(curator.md §2). 상한에 닿으면 자식을 죽이고 timeout 으로 기록하므로 curator.md 가 항목 단위로 끝내라고 한다.
+    effort="high"; max_turns=400; item_max=2400
+    case "$mode" in
+      register|model-refresh|harness-refresh) effort="medium"; max_turns=120; item_max=900;;
+      record) effort="medium"; max_turns=200; item_max=1800;;
+    esac
+    [ -n "$ITEM_MAX_SEC" ] && item_max="$ITEM_MAX_SEC"
     req_n="$(nw_tool_path "$req")"; done_n="$(nw_tool_path "$done_file")"; root_n="$(nw_tool_path "$root")"
     prompt="너는 n-worker 스킬의 curator 다. 먼저 $cur_n 를 읽고 그 지침대로 행동하라 - 특히 '큐 실행 형태' 절. 오늘 날짜: $(date +%F). 스킬 경로: $skill_n. 노트북 경로: $nb_n. 요청 파일: $req_n (mode=$mode, 이 JSON 의 payload 가 네 입력이다). 끝나면 결과 JSON 을 $done_n 에 써라(형식은 curator.md '돌려줄 것' 의 큐 형식). 하위 서브에이전트는 쓰지 않는다 - 전부 직접 한다. 노트북($nb_n) 밖은 수정하지 않는다. 프로젝트 루트($root_n)는 읽기만 한다. git 으로 커밋, 푸시, 체크아웃, 리셋을 하지 않는다. 경로는 받은 표기 그대로 쓴다. 말하지 마라 - 서술,진행 보고,요약 출력 없이 도구 호출만 하고, 마지막 출력은 'done: $done_n' 한 줄이다."
     # 프로젝트 루트가 없으면(옮겨짐, 삭제) --add-dir 을 빼고 띄운다 - 있지 않은 폴더를 주면 claude 가 시작 전에 종료한다.
@@ -129,11 +136,11 @@ d=json.load(open(sys.argv[1],encoding="utf-8")); print(d.get("project_root",""))
         "Edit(//${skill_n#/}/references/**)" "Write(//${skill_n#/}/references/**)" "Edit(//${skill_n#/}/agents/**)" "Write(//${skill_n#/}/agents/**)" \
       --strict-mcp-config \
       ${ADD_DIR:+--add-dir "$ADD_DIR"} \
-      --output-format json --max-turns 400 </dev/null >"$raw" 2>"$log.err") &
+      --output-format json --max-turns "$max_turns" </dev/null >"$raw" 2>"$log.err") &
     cpid=$!; echo "$cpid" > "$C/lock/child"
     while kill -0 "$cpid" 2>/dev/null; do
       sleep "$POLL_SEC"; date -u +%Y-%m-%dT%H:%M:%SZ > "$C/lock/heartbeat"
-      if [ -z "$status" ] && [ $(( $(date +%s) - t0 )) -gt "$ITEM_MAX_SEC" ]; then
+      if [ -z "$status" ] && [ $(( $(date +%s) - t0 )) -gt "$item_max" ]; then
         status="timeout"; kill "$cpid" 2>/dev/null; sleep 3; kill -9 "$cpid" 2>/dev/null
       fi
     done
