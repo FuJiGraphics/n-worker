@@ -87,12 +87,12 @@ Claude Code 세션에서 프로젝트 폴더를 열고:
 
 | 단계 | 하는 일 |
 |---|---|
-| **P0 컨텍스트** | 노트북 로드와 대상 대조(작업 크기 무관), 프로젝트 식별, 작업 무게 확인 |
+| **P0 컨텍스트** | 노트북 로드와 대상 대조(작업 크기 무관), 프로젝트 식별, 작업 무게 확인, 플랜 추적 방식과 단계 카드 채택 질문 |
 | **P1 인터뷰** | 질문, 답, 플랜 갱신, 병렬 조사를 의도가 확정될 때까지 반복 |
-| **P2 착수 판단** | 플랜 요약 출력 → 승인 1회. 되돌리기 어려운 고위험 설계만 사전 검토 |
-| **P3 생산** | 복제 후 적응 - 기존 구현을 본떠 차이만 바꾼다. 큰 묶음은 서브에이전트에 위임 |
+| **P2 착수 판단** | 승인 전 노트북 대조(파일, 심볼, 호출 API) → 플랜 요약 출력 → 승인 1회. 되돌리기 어려운 고위험 설계만 사전 검토 |
+| **P3 생산** | 첫 도구 호출은 nb-grep. 복제 후 적응 - 기존 구현을 본떠 차이만 바꾼다. Play 중 계속, 전역 저장, 남의 미커밋에 닿는 동작은 승인 뒤 실행. 큰 묶음은 서브에이전트에 위임 |
 | **P4 검증** | 컴파일, 테스트, 데이터 확인 → 위험에 맞춘 실제 diff 리뷰 → 실패한 검사만 재실행. 로그는 발췌만 읽는다 |
-| **P5 기록과 보고** | 배운 것을 curator 큐에 넣는다(정리는 뒤에서) → 변경 요약 표 → 요청 시 pdf/html 보고서 |
+| **P5 기록과 보고** | 배운 것을 curator 큐에 넣는다(정리는 뒤에서) → 변경 요약 표 → 보고서 여부 질문(pdf/html) |
 
 핵심 설계 결정:
 
@@ -101,6 +101,7 @@ Claude Code 세션에서 프로젝트 폴더를 열고:
 - **복제 후 적응이 생성보다 우선.** 처음부터 새로 짜지 않고 그 프로젝트에서 가장 가까운 기존 구현을 본뜬다. 컨벤션은 저절로 따라온다.
 - **노트북 조회는 작업 크기와 무관하다.** 외부 서비스에 쓰는 도구와 권한, 팀 정책, 폐기된 전제는 코드에도 모델의 사전 지식에도 없어 조사로 발견되지 않는다. 질문 하나, 한 줄 수정도 `nb-load` 와 `nb-grep` 을 거치고, "권한이 없다", "사용자가 직접 해야 한다" 로 답하기 전에는 그 대상 이름을 먼저 대조한다. `nb-load` 는 registry 의 해당 행만 출력해 P0 비용을 다른 프로젝트 정보로 채우지 않는다.
 - **읽은 것만 사실로 친다.** 노트북도 과거에 검증된 기록일 뿐이라, 동작을 바꾸기 전에는 실제 코드로 다시 확인한다.
+- **노트북 대조는 행위 직전 관문이다.** 대조 대상에는 파일과 심볼뿐 아니라 이번에 호출할 에디터 API, CLI 커맨드, 저장 함수가 들어간다 - `SaveAssets()` 같은 전역 동작의 함정은 API 이름으로만 검색된다. 승인 직후 첫 도구 호출은 `nb-grep` 실행이고, 변경 단위마다 손대기 전에 다시 건다. 단계별 절차와 질문 지점은 SKILL.md 에 인라인으로 둔다 - 참조 문서로 내린 절차는 읽히지 않았다(2026-09-07 실측).
 - **서브에이전트 결과는 파일로 받는다.** Workflow 는 건수만 돌려주고 전문은 `scripts/wf-summarize.py` 로 압축해 읽는다. 전문을 그대로 받으면 메인 컨텍스트에 통째로 쌓이고 긴 결과는 잘린다.
 - **하네스에 기댄 동작은 목록으로 관리한다.** 문서에 없는 Claude Code 동작에 기댄 곳은 `notebook/common/harness-routing.md` 에 항목별로 적는다(가정, 사용 위치, 근거, 깨졌을 때). `nb-load` 가 하네스 버전이 바뀐 것을 감지하면 한 줄 알린다. 재검증은 실제로 깨진 동작이 있을 때 curator 에 맡긴다. 스킬이 하네스 업데이트에 조용히 깨지지 않게 하는 장치다.
 
@@ -167,11 +168,11 @@ scripts/curator-ctl.sh stop      # 현재 항목이 끝나면 종료
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"$HOME/.claude/skills/n-worker/scripts/nb-gate.sh\"",
+            "command": "bash -n \"$HOME/.claude/skills/n-worker/scripts/nb-gate.sh\" 2>/dev/null || exit 0; bash \"$HOME/.claude/skills/n-worker/scripts/nb-gate.sh\"",
             "timeout": 10
           }
         ]
@@ -184,7 +185,9 @@ scripts/curator-ctl.sh stop      # 현재 항목이 끝나면 종료
 - `scripts/nb-gate.mode` 가 `shadow` 면 기록만 하고 막지 않는다(기본값). `block` 으로 바꾸면 대조 기록 없는 프로젝트 파일 수정이 거부된다.
 - 게이트는 n-worker 세션만 검사한다. `nb-load` 가 세션 id(`CLAUDE_CODE_SESSION_ID`)를 마커에 적고, 훅은 그 id 와 정확히 맞는 세션의 편집만 판정한다. 다른 세션의 편집은 기록도 남기지 않는다.
 - 훅 없이도 스킬은 동작한다 - 게이트는 규율의 보험이다. `jq` 가 없으면 python 으로 훅 입력을 읽는다.
-- Windows 는 `"command": "bash \"C:/Users/<이름>/.claude/skills/n-worker/scripts/nb-gate.sh\""` 처럼 슬래시 절대경로로 등록한다(`$HOME` 확장은 셸에 따라 다르다).
+- **Bash 도 매칭한다.** 자동 모드의 "bash first" 지시로 편집이 `cp`, `sed -i`, heredoc, `unity command eval_file` 로 가면 Edit/Write 매처만으로는 게이트가 한 번도 안 걸린다(2026-09-07 실측). `scripts/nb-gate-bash.py` 가 Bash 명령문에서 프로젝트 파일 쓰기 대상(리다이렉션, cp/mv 목적지, sed -i, tee, rm, 쓰기 모드 인라인 스크립트의 경로 리터럴, eval_file 파일 안의 Assets/ 경로)을 휴리스틱으로 뽑아 같은 검사를 하고 `bash-` 접두 verdict 로 기록한다. 읽기만 하는 명령은 대상이 없어 통과한다.
+- **훅 명령을 `bash -n ... || exit 0; bash ...` 로 감싼다.** 훅 스크립트가 구문 오류로 죽으면 exit 2 라 하네스가 차단으로 해석해 그 매처의 도구 호출이 전부 막힌다(fail-closed). `bash -n` 가드가 구문 오류를 통과로 돌린다.
+- Windows 는 `C:/Users/<이름>/.claude/skills/n-worker/scripts/nb-gate.sh` 처럼 슬래시 절대경로로 같은 형태(`bash -n` 가드 포함)로 등록한다(`$HOME` 확장은 셸에 따라 다르다).
 
 ## 폴더 구조
 
@@ -192,7 +195,7 @@ scripts/curator-ctl.sh stop      # 현재 항목이 끝나면 종료
 n-worker/
 ├── SKILL.md               # 진입점 - 파이프라인 본문과 준칙
 ├── references/            # 단계별 상세 절차 (점진 로드)
-│   ├── interview.md       #   P1 인터뷰, 질문 기준, 착수 조건
+│   ├── interview.md       #   P1 인터뷰, 결정 트리 순회, 병렬 조사, 수렴 판정
 │   ├── plan.md            #   플랜 파일 포맷
 │   ├── review.md          #   위험 기반 리뷰 기준, 반환 schema, Workflow 골격
 │   ├── produce.md         #   P3 복제 후 적응, 위임 명세
@@ -205,7 +208,8 @@ n-worker/
 │   ├── _lib.sh            # 공용 함수 (플랫폼 판별, python 탐색, 경로 정규화, 데몬 분리)
 │   ├── nb-load.sh         # P0 노트북 로더 (registry 해당 행 + 3레이어 인덱스를 한 번에)
 │   ├── nb-grep.sh         # 함정 대조 (3레이어 인덱스 grep + 히트 본문 동봉 + 로그)
-│   ├── nb-gate.sh         # PreToolUse 게이트 (선택)
+│   ├── nb-gate.sh         # PreToolUse 게이트 (선택) - Edit/Write/Bash
+│   ├── nb-gate-bash.py    #   게이트의 Bash 명령문 쓰기 대상 추출 (휴리스틱)
 │   ├── curator-enqueue.sh # 기록 요청을 큐에 넣고 데몬이 없으면 띄운다
 │   ├── curator-daemon.sh  # 큐를 순서대로 처리하는 독립 프로세스
 │   ├── curator-perm.mode  # curator 데몬의 권한 모드 (한 단어)
