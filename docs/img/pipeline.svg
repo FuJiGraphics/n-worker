@@ -29,7 +29,7 @@
 
     <rect x="370" y="110" width="140" height="72" rx="8" fill="#24283b" stroke="#e0af68"/>
     <text x="440" y="142" text-anchor="middle" fill="#7aa2f7" font-weight="bold">P2</text>
-    <text x="440" y="166" text-anchor="middle" fill="#c0caf5">사전 리뷰</text>
+    <text x="440" y="166" text-anchor="middle" fill="#c0caf5">착수 판단</text>
 
     <rect x="540" y="110" width="140" height="72" rx="8" fill="#24283b" stroke="#3b4261"/>
     <text x="610" y="142" text-anchor="middle" fill="#7aa2f7" font-weight="bold">P3</text>
@@ -53,9 +53,9 @@
     <line x1="850" y1="146" x2="876" y2="146" marker-end="url(#ar)"/>
   </g>
 
-  <!-- 치명 지적 되돌이 (P2 → P1) -->
+  <!-- 승인 보류 되돌이 (P2 → P1) -->
   <path d="M 440 182 C 440 216, 270 216, 270 186" fill="none" stroke="#f7768e" stroke-width="1.5" marker-end="url(#arRed)"/>
-  <text x="355" y="232" text-anchor="middle" fill="#f7768e" font-size="13">치명 지적 시 해당 지점만 재수렴</text>
+  <text x="355" y="232" text-anchor="middle" fill="#f7768e" font-size="13">승인 안 되면 해당 결정만 재확인</text>
 
   <!-- 검증 반복 (P4 ↔ 수정) -->
   <path d="M 810 182 C 810 216, 750 216, 750 186" fill="none" stroke="#9ece6a" stroke-width="1.5" marker-end="url(#arGreen)"/>
